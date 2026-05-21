@@ -1,0 +1,372 @@
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  View,
+  TextInput,
+  Pressable,
+  Image,
+  StyleSheet,
+  ScrollView,
+  Keyboard,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
+import {
+  ChevronLeft,
+  Check,
+  Camera,
+  Heart,
+  Trash2,
+  Bell,
+  Calendar as CalIcon,
+} from 'lucide-react-native';
+import { format, parseISO } from 'date-fns';
+import { Text } from '@/components/Text';
+import { IconButton } from '@/components/IconButton';
+import { Chip } from '@/components/Chip';
+import { InlineCalendar } from '@/components/InlineCalendar';
+import { colors, radii, spacing, typeScale } from '@/theme';
+import { confirm } from '@/lib/confirm';
+import { ymd } from '@/lib/date';
+import * as repo from '@/features/people/repo';
+import { usePeopleStore } from '@/features/people/store';
+import { RELATION_META, RELATIONS, type Relation } from '@/features/people/types';
+
+const FREQ_PRESETS = [
+  { label: 'Weekly', days: 7 },
+  { label: 'Biweekly', days: 14 },
+  { label: 'Monthly', days: 30 },
+  { label: 'Quarterly', days: 90 },
+];
+
+export default function PersonScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ id?: string }>();
+  const refreshList = usePeopleStore((s) => s.refresh);
+
+  const idRef = useRef<string | null>(params.id ?? null);
+
+  const [name, setName] = useState('');
+  const [relation, setRelation] = useState<Relation | null>(null);
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [notes, setNotes] = useState('');
+  const [theirGoals, setTheirGoals] = useState('');
+  const [theirStruggles, setTheirStruggles] = useState('');
+  const [mySupport, setMySupport] = useState('');
+  const [contributions, setContributions] = useState('');
+  const [futurePlans, setFuturePlans] = useState('');
+  const [lastContactDate, setLastContactDate] = useState<string | null>(null);
+  const [contactReminderDays, setContactReminderDays] = useState<number | null>(null);
+  const [showCalendar, setShowCalendar] = useState(false);
+
+  const [saving, setSaving] = useState(false);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const lastSavedRef = useRef<string>('');
+
+  const snapshot = () =>
+    [name, relation, photoUri, notes, theirGoals, theirStruggles, mySupport, contributions, futurePlans, lastContactDate, contactReminderDays].join('§');
+
+  useEffect(() => {
+    (async () => {
+      if (!params.id) return;
+      const p = await repo.get(params.id);
+      if (p) {
+        setName(p.name);
+        setRelation(p.relation);
+        setPhotoUri(p.photoUri);
+        setNotes(p.notes ?? '');
+        setTheirGoals(p.theirGoals ?? '');
+        setTheirStruggles(p.theirStruggles ?? '');
+        setMySupport(p.mySupport ?? '');
+        setContributions(p.contributions ?? '');
+        setFuturePlans(p.futurePlans ?? '');
+        setLastContactDate(p.lastContactDate);
+        setContactReminderDays(p.contactReminderDays);
+        lastSavedRef.current = [p.name, p.relation, p.photoUri, p.notes, p.theirGoals, p.theirStruggles, p.mySupport, p.contributions, p.futurePlans, p.lastContactDate, p.contactReminderDays].join('§');
+      }
+    })();
+  }, [params.id]);
+
+  const save = useCallback(async (silent = false): Promise<boolean> => {
+    if (!name.trim()) return false;
+    if (snapshot() === lastSavedRef.current) return true;
+    if (!silent) setSaving(true);
+    try {
+      const input = {
+        name: name.trim(),
+        relation,
+        photoUri,
+        notes: notes.trim() || null,
+        theirGoals: theirGoals.trim() || null,
+        theirStruggles: theirStruggles.trim() || null,
+        mySupport: mySupport.trim() || null,
+        contributions: contributions.trim() || null,
+        futurePlans: futurePlans.trim() || null,
+        lastContactDate,
+        contactReminderDays,
+      };
+      if (idRef.current) {
+        await repo.update(idRef.current, input);
+      } else {
+        const created = await repo.create(input);
+        idRef.current = created.id;
+      }
+      lastSavedRef.current = snapshot();
+      setSavedAt(Date.now());
+      await refreshList();
+      return true;
+    } finally {
+      if (!silent) setSaving(false);
+    }
+  }, [name, relation, photoUri, notes, theirGoals, theirStruggles, mySupport, contributions, futurePlans, lastContactDate, contactReminderDays, refreshList]);
+
+  // Auto-save
+  useEffect(() => {
+    if (!name.trim()) return;
+    const t = setTimeout(() => { save(true); }, 1500);
+    return () => clearTimeout(t);
+  }, [name, relation, photoUri, notes, theirGoals, theirStruggles, mySupport, contributions, futurePlans, lastContactDate, contactReminderDays, save]);
+
+  const handleBack = async () => {
+    Keyboard.dismiss();
+    await save(true);
+    router.back();
+  };
+
+  const handleDone = async () => {
+    Keyboard.dismiss();
+    await save();
+    router.back();
+  };
+
+  const pickPhoto = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Permission needed', 'Allow photo access.');
+      return;
+    }
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      aspect: [1, 1],
+      quality: 0.85,
+    });
+    if (!res.canceled && res.assets?.[0]) setPhotoUri(res.assets[0].uri);
+  };
+
+  const markContactedToday = () => {
+    setLastContactDate(ymd());
+  };
+
+  const handleDelete = async () => {
+    if (!idRef.current) {
+      router.back();
+      return;
+    }
+    const ok = await confirm({
+      title: 'Remove this person?',
+      message: "This won't affect them. Just removes their entry here.",
+      confirmLabel: 'Remove',
+      destructive: true,
+    });
+    if (!ok) return;
+    await repo.remove(idRef.current);
+    await refreshList();
+    router.back();
+  };
+
+  const initials = name.trim()
+    ? name.trim().split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase()
+    : '?';
+
+  const relMeta = relation ? RELATION_META[relation] : null;
+  const dirty = snapshot() !== lastSavedRef.current;
+
+  return (
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <SafeAreaView style={styles.root} edges={['top']}>
+        <View style={styles.header}>
+          <IconButton icon={ChevronLeft} onPress={handleBack} bg={colors.surface} />
+          <View style={{ flex: 1 }}>
+            <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
+              {idRef.current ? 'Profile' : 'New person'}
+            </Text>
+            <Text variant="small" color={colors.textFaint} style={{ marginTop: 2 }}>
+              {saving ? 'Saving...' : !name.trim() ? 'Empty' : dirty ? 'Unsaved' : 'Saved'}
+            </Text>
+          </View>
+          <Pressable
+            onPress={handleDone}
+            hitSlop={8}
+            style={[styles.doneBtn, !name.trim() && { opacity: 0.5 }]}
+            disabled={!name.trim()}
+          >
+            <Check size={16} color={name.trim() ? colors.bg : colors.textFaint} strokeWidth={2.5} />
+            <Text variant="smallMedium" color={name.trim() ? colors.bg : colors.textFaint}>Done</Text>
+          </Pressable>
+        </View>
+
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <ScrollView
+            contentContainerStyle={[styles.body, { paddingBottom: 80 + insets.bottom }]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Photo + name */}
+            <View style={styles.headerCard}>
+              <Pressable onPress={pickPhoto} style={[styles.photoWrap, { backgroundColor: relMeta?.tint ?? colors.surfaceAlt }]}>
+                {photoUri ? (
+                  <Image source={{ uri: photoUri }} style={styles.photo} />
+                ) : (
+                  <>
+                    <Camera size={20} color={colors.textSoft} strokeWidth={1.75} />
+                    <Text variant="h3" color={colors.textSoft} style={{ marginTop: 4 }}>{initials}</Text>
+                  </>
+                )}
+              </Pressable>
+              <TextInput
+                value={name}
+                onChangeText={setName}
+                placeholder="Their name"
+                placeholderTextColor={colors.textFaint}
+                style={[typeScale.h1, styles.nameInput]}
+              />
+            </View>
+
+            {/* Relation */}
+            <Section label="Relation">
+              <View style={styles.chipRow}>
+                {RELATIONS.map((r) => (
+                  <Chip
+                    key={r}
+                    label={RELATION_META[r].label}
+                    tint={RELATION_META[r].tint}
+                    selected={relation === r}
+                    size="sm"
+                    onPress={() => setRelation(relation === r ? null : r)}
+                  />
+                ))}
+              </View>
+            </Section>
+
+            {/* Stay-in-touch reminder */}
+            <Section label="Stay in touch" icon={Bell}>
+              <View style={styles.chipRow}>
+                <Chip
+                  label="Off"
+                  selected={!contactReminderDays}
+                  size="sm"
+                  onPress={() => setContactReminderDays(null)}
+                />
+                {FREQ_PRESETS.map((f) => (
+                  <Chip
+                    key={f.label}
+                    label={f.label}
+                    selected={contactReminderDays === f.days}
+                    size="sm"
+                    onPress={() => setContactReminderDays(f.days)}
+                  />
+                ))}
+              </View>
+              {contactReminderDays ? (
+                <View style={styles.lastContactRow}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <CalIcon size={14} color={colors.textMuted} strokeWidth={1.75} />
+                    <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
+                      Last contact: {lastContactDate ? format(parseISO(lastContactDate), 'MMM d, yyyy') : 'Never'}
+                    </Text>
+                  </View>
+                  <Pressable onPress={markContactedToday} hitSlop={6}>
+                    <Text variant="smallMedium" color={colors.text}>I REACHED OUT TODAY</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+            </Section>
+
+            <LongInput label="What they're working toward" value={theirGoals} onChangeText={setTheirGoals} placeholder="Their goals, ambitions, dreams." />
+            <LongInput label="What they're going through" value={theirStruggles} onChangeText={setTheirStruggles} placeholder="Challenges, fears, weights they carry." />
+            <LongInput label="How I support them" value={mySupport} onChangeText={setMySupport} placeholder="What does showing up for them look like?" />
+            <LongInput label="What I've done for them" value={contributions} onChangeText={setContributions} placeholder="Concrete things you've done. Remember these." />
+            <LongInput label="How I plan to be there" value={futurePlans} onChangeText={setFuturePlans} placeholder="Future ways to support, celebrate, show up." />
+            <LongInput label="Other notes" value={notes} onChangeText={setNotes} placeholder="Birthdays, preferences, anything else." />
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </>
+  );
+}
+
+function Section({ label, icon: Icon, children }: { label: string; icon?: any; children: React.ReactNode }) {
+  return (
+    <View style={styles.section}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        {Icon ? <Icon size={14} color={colors.textMuted} strokeWidth={1.75} /> : null}
+        <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>{label}</Text>
+      </View>
+      {children}
+    </View>
+  );
+}
+
+function LongInput({ label, value, onChangeText, placeholder }: { label: string; value: string; onChangeText: (v: string) => void; placeholder: string }) {
+  return (
+    <View style={styles.section}>
+      <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>{label}</Text>
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={colors.textFaint}
+        multiline
+        style={[typeScale.body, styles.textArea]}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.bg },
+  header: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+    paddingHorizontal: spacing.xxl, paddingTop: spacing.md, paddingBottom: spacing.md,
+  },
+  doneBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+    backgroundColor: colors.text, borderRadius: radii.pill,
+  },
+  body: { paddingHorizontal: spacing.xxl, paddingTop: spacing.md, gap: spacing.lg },
+  headerCard: { alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md },
+  photoWrap: {
+    width: 96, height: 96, borderRadius: 48,
+    alignItems: 'center', justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  photo: { width: '100%', height: '100%' },
+  nameInput: { color: colors.text, padding: 0, textAlign: 'center', minHeight: 36 },
+  section: { gap: spacing.sm },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  lastContactRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    backgroundColor: colors.surface, borderColor: colors.hairline, borderWidth: 1,
+    borderRadius: radii.lg, paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
+  },
+  textArea: {
+    color: colors.text,
+    backgroundColor: colors.surface,
+    borderColor: colors.hairline, borderWidth: 1,
+    borderRadius: radii.lg,
+    padding: spacing.lg, minHeight: 70,
+    textAlignVertical: 'top',
+  },
+  deleteBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm,
+    paddingVertical: spacing.lg, marginTop: spacing.md,
+    borderRadius: radii.lg, borderWidth: 1,
+    borderColor: '#E8D0CB', backgroundColor: '#F7E9E5',
+  },
+});
