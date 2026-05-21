@@ -158,17 +158,30 @@ export default function DreamScreen() {
           contentContainerStyle={{ paddingBottom: 80 + insets.bottom }}
           showsVerticalScrollIndicator={false}
         >
-          {/* HERO */}
-          <Pressable onPress={pickHero} style={styles.hero}>
+          {/* HERO — image area is its own press target so controls aren't intercepted */}
+          <View style={styles.hero}>
             {imageUri ? (
-              <Image source={{ uri: imageUri }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+              <>
+                <Image source={{ uri: imageUri }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+                <Pressable
+                  onPress={pickHero}
+                  hitSlop={6}
+                  style={styles.changeImageChip}
+                >
+                  <ImagePlus size={14} color={colors.text} strokeWidth={1.75} />
+                  <Text variant="caption" color={colors.text}>CHANGE</Text>
+                </Pressable>
+              </>
             ) : (
-              <View style={[styles.heroPlaceholder, { backgroundColor: palette.lavenderSoft }]}>
+              <Pressable
+                onPress={pickHero}
+                style={[styles.heroPlaceholder, { backgroundColor: palette.lavenderSoft }]}
+              >
                 <ImagePlus size={36} color={colors.textMuted} strokeWidth={1.5} />
                 <Text variant="bodyMedium" color={colors.textSoft} style={{ marginTop: spacing.sm }}>
-                  Add a visual
+                  Tap to add a visual
                 </Text>
-              </View>
+              </Pressable>
             )}
             <View style={styles.heroTop}>
               <IconButton icon={ChevronLeft} onPress={handleBack} bg="rgba(255,255,255,0.85)" />
@@ -183,7 +196,7 @@ export default function DreamScreen() {
                 <Text variant="smallMedium" color={colors.bg}>Done</Text>
               </Pressable>
             </View>
-          </Pressable>
+          </View>
 
           <View style={styles.body}>
             <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
@@ -244,6 +257,14 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   hero: { height: 280, position: 'relative' },
   heroPlaceholder: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  changeImageChip: {
+    position: 'absolute',
+    bottom: spacing.md, left: spacing.lg,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: spacing.md, paddingVertical: 6,
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+  },
   heroTop: {
     position: 'absolute',
     top: spacing.md, left: spacing.lg, right: spacing.lg,

@@ -16,6 +16,8 @@ import {
   Quote as QuoteIcon,
   Trash2,
   X as CloseIcon,
+  NotebookPen,
+  ArrowRight,
 } from 'lucide-react-native';
 import { format } from 'date-fns';
 import * as Haptics from 'expo-haptics';
@@ -36,9 +38,11 @@ import { useHabitsStore } from '@/features/habits/store';
 import { useGoalsStore } from '@/features/goals/store';
 import { useProfileStore } from '@/features/profile/store';
 import { useJournalStore } from '@/features/journal/store';
+import { useDiaryStore } from '@/features/diary/store';
 import { GOAL_CATEGORY_META } from '@/features/goals/types';
 import { HABIT_ICONS } from '@/features/habits/icons';
-import { MOOD_OPTIONS, findPrompt } from '@/features/journal/types';
+import { MoodPicker } from '@/features/diary/MoodPicker';
+import { MOOD_META } from '@/features/diary/types';
 import { htmlToPlainText } from '@/features/realizations/types';
 import type { JournalEntry } from '@/features/journal/types';
 
@@ -63,6 +67,10 @@ export default function HomeScreen() {
   const refreshJournal = useJournalStore((s) => s.refresh);
   const removeManyJournal = useJournalStore((s) => s.removeMany);
 
+  const todayDiary = useDiaryStore((s) => s.today);
+  const loadDiary = useDiaryStore((s) => s.loadToday);
+  const setDiaryMood = useDiaryStore((s) => s.setMood);
+
   const [goalsExpanded, setGoalsExpanded] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const selectionMode = selected.size > 0;
@@ -74,7 +82,8 @@ export default function HomeScreen() {
       refreshGoals();
       refreshProfile();
       refreshJournal();
-    }, [refreshTasks, refreshHabits, refreshGoals, refreshProfile, refreshJournal]),
+      loadDiary();
+    }, [refreshTasks, refreshHabits, refreshGoals, refreshProfile, refreshJournal, loadDiary]),
   );
 
   const activeGoals = useMemo(() => goals.filter((g) => g.status === 'active'), [goals]);
@@ -223,82 +232,120 @@ export default function HomeScreen() {
       ) : null}
 
       {/* Tasks today */}
-      <Card>
-        <View style={styles.cardHeader}>
-          <Text variant="h3">Today's tasks</Text>
-          <Pressable onPress={() => router.push('/tasks')} hitSlop={8}>
-            <Text variant="smallMedium" color={colors.textMuted}>See all</Text>
-          </Pressable>
-        </View>
-        {todayTasks.length === 0 ? (
-          <Text variant="body" color={colors.textMuted} style={{ marginTop: spacing.sm }}>
-            Nothing scheduled. Take a breath.
-          </Text>
-        ) : (
-          <View style={{ gap: spacing.md, marginTop: spacing.sm }}>
-            {todayTasks.map((t) => (
-              <View key={t.id} style={styles.taskRow}>
-                <Checkbox checked={t.status === 'completed'} onToggle={() => toggleTask(t.id)} size={22} />
-                <Text
-                  variant="body"
-                  style={{
-                    flex: 1,
-                    textDecorationLine: t.status === 'completed' ? 'line-through' : 'none',
-                    color: t.status === 'completed' ? colors.textMuted : colors.text,
-                  }}
-                  numberOfLines={1}
-                >
-                  {t.title}
-                </Text>
-              </View>
-            ))}
+      <View style={styles.padded}>
+        <Card>
+          <View style={styles.cardHeader}>
+            <Text variant="h3">Today's tasks</Text>
+            <Pressable onPress={() => router.push('/tasks')} hitSlop={8}>
+              <Text variant="smallMedium" color={colors.textMuted}>See all</Text>
+            </Pressable>
           </View>
-        )}
-      </Card>
+          {todayTasks.length === 0 ? (
+            <Text variant="body" color={colors.textMuted} style={{ marginTop: spacing.sm }}>
+              Nothing scheduled. Take a breath.
+            </Text>
+          ) : (
+            <View style={{ gap: spacing.md, marginTop: spacing.sm }}>
+              {todayTasks.map((t) => (
+                <View key={t.id} style={styles.taskRow}>
+                  <Checkbox checked={t.status === 'completed'} onToggle={() => toggleTask(t.id)} size={22} />
+                  <Text
+                    variant="body"
+                    style={{
+                      flex: 1,
+                      textDecorationLine: t.status === 'completed' ? 'line-through' : 'none',
+                      color: t.status === 'completed' ? colors.textMuted : colors.text,
+                    }}
+                    numberOfLines={1}
+                  >
+                    {t.title}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </Card>
+      </View>
 
       {/* Habits today */}
-      <Card>
-        <View style={styles.cardHeader}>
-          <Text variant="h3">Habits</Text>
-          <Pressable onPress={() => router.push('/habits')} hitSlop={8}>
-            <Text variant="smallMedium" color={colors.textMuted}>See all</Text>
-          </Pressable>
-        </View>
-        {habits.length === 0 ? (
-          <Text variant="body" color={colors.textMuted} style={{ marginTop: spacing.sm }}>
-            Add a habit to begin building consistency.
-          </Text>
-        ) : (
-          <View style={styles.habitGrid}>
-            {habits.slice(0, 6).map((h) => {
-              const I = HABIT_ICONS[h.icon];
-              return (
-                <Pressable key={h.id} onPress={() => toggleHabit(h.id)} style={styles.habitPill}>
-                  <View
-                    style={[
-                      styles.habitIcon,
-                      {
-                        backgroundColor: h.doneToday ? h.color : h.color + '22',
-                        borderColor: h.color,
-                      },
-                    ]}
-                  >
-                    <I size={18} color={h.doneToday ? colors.bg : h.color} strokeWidth={1.8} />
-                  </View>
-                  <Text variant="caption" color={colors.textSoft} numberOfLines={1} style={{ maxWidth: 70, marginTop: 6 }}>
-                    {h.title}
-                  </Text>
-                </Pressable>
-              );
-            })}
+      <View style={styles.padded}>
+        <Card>
+          <View style={styles.cardHeader}>
+            <Text variant="h3">Habits</Text>
+            <Pressable onPress={() => router.push('/habits')} hitSlop={8}>
+              <Text variant="smallMedium" color={colors.textMuted}>See all</Text>
+            </Pressable>
           </View>
-        )}
-      </Card>
+          {habits.length === 0 ? (
+            <Text variant="body" color={colors.textMuted} style={{ marginTop: spacing.sm }}>
+              Add a habit to begin building consistency.
+            </Text>
+          ) : (
+            <View style={styles.habitGrid}>
+              {habits.slice(0, 6).map((h) => {
+                const I = HABIT_ICONS[h.icon];
+                return (
+                  <Pressable key={h.id} onPress={() => toggleHabit(h.id)} style={styles.habitPill}>
+                    <View
+                      style={[
+                        styles.habitIcon,
+                        {
+                          backgroundColor: h.doneToday ? h.color : h.color + '22',
+                          borderColor: h.color,
+                        },
+                      ]}
+                    >
+                      <I size={18} color={h.doneToday ? colors.bg : h.color} strokeWidth={1.8} />
+                    </View>
+                    <Text variant="caption" color={colors.textSoft} numberOfLines={1} style={{ maxWidth: 70, marginTop: 6 }}>
+                      {h.title}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+        </Card>
+      </View>
 
-      {/* Journal feed header */}
-      <View style={{ marginTop: spacing.sm }}>
+      {/* Daily reflection (form-based, prompts + mood) */}
+      <View style={styles.padded}>
+        <Card
+          tint={todayDiary?.mood ? MOOD_META[todayDiary.mood].tint + '33' : colors.accentSoft}
+          flat
+        >
+          <View style={styles.cardHeader}>
+            <Text variant="h3">How was your day?</Text>
+            <Pressable onPress={() => router.push('/reflections')} hitSlop={8}>
+              <Text variant="smallMedium" color={colors.textSoft}>Past entries</Text>
+            </Pressable>
+          </View>
+          <View style={{ marginTop: spacing.md }}>
+            <MoodPicker value={todayDiary?.mood ?? null} onChange={(m) => setDiaryMood(m)} />
+          </View>
+          <Pressable
+            onPress={() => router.push('/diary')}
+            style={({ pressed }) => [
+              styles.diaryCta,
+              { backgroundColor: colors.surface },
+              pressed && { opacity: 0.7 },
+            ]}
+          >
+            <Icon icon={NotebookPen} size={18} color={colors.textSoft} />
+            <Text variant="body" color={colors.textSoft} style={{ flex: 1 }}>
+              {todayDiary?.summary || todayDiary?.good || todayDiary?.bad || todayDiary?.learned || todayDiary?.progress || todayDiary?.happy
+                ? 'Continue your reflection'
+                : 'Open the five gentle prompts'}
+            </Text>
+            <Icon icon={ArrowRight} size={16} color={colors.textMuted} />
+          </Pressable>
+        </Card>
+      </View>
+
+      {/* Journal feed header (free-write) */}
+      <View style={[styles.padded, { marginTop: spacing.sm }]}>
         <View style={styles.cardHeader}>
-          <Text variant="h2">Your journal</Text>
+          <Text variant="h2">Free write</Text>
           <Pressable
             onPress={() => router.push('/journal')}
             hitSlop={8}
@@ -313,7 +360,7 @@ export default function HomeScreen() {
           </Pressable>
         </View>
         <Text variant="body" color={colors.textSoft} style={{ marginTop: spacing.xs }}>
-          Whenever. Whatever. Long-press an entry to select.
+          Whenever a thought comes. Long-press an entry to select.
         </Text>
       </View>
     </View>
@@ -411,8 +458,6 @@ function JournalCard({
   onLongPress: () => void;
 }) {
   const colors = useColors();
-  const prompt = findPrompt(entry.promptKey);
-  const moodMeta = entry.mood ? MOOD_OPTIONS.find((m) => m.key === entry.mood) : null;
   const previewText = htmlToPlainText(entry.bodyHtml) || entry.content || '';
   const firstImage = entry.attachments.find((a) => a.kind === 'image');
   const firstAudio = entry.attachments.find((a) => a.kind === 'audio');
@@ -444,15 +489,6 @@ function JournalCard({
           <Text variant="caption" color={colors.textMuted}>
             {format(entry.createdAt, 'EEE, MMM d · h:mm a').toUpperCase()}
           </Text>
-          {moodMeta ? (
-            <>
-              <Text variant="caption" color={colors.textFaint}>·</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: moodMeta.tint }} />
-                <Text variant="caption" color={colors.textMuted}>{moodMeta.label.toUpperCase()}</Text>
-              </View>
-            </>
-          ) : null}
           {selectionMode ? (
             <View style={{ marginLeft: 'auto' }}>
               <View
@@ -467,15 +503,6 @@ function JournalCard({
             </View>
           ) : null}
         </View>
-
-        {prompt?.question ? (
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6 }}>
-            <QuoteIcon size={12} color={colors.textMuted} strokeWidth={2} />
-            <Text variant="small" color={colors.textSoft} style={{ flex: 1, fontStyle: 'italic' }}>
-              {prompt.question}
-            </Text>
-          </View>
-        ) : null}
 
         {previewText ? (
           <Text variant="body" numberOfLines={6} style={{ lineHeight: 22 }}>
@@ -527,6 +554,15 @@ function StatBox({ label, value, tint, icon, sub }: { label: string; value: stri
 
 const styles = StyleSheet.create({
   list: { paddingHorizontal: 0, paddingBottom: 200 },
+  padded: { paddingHorizontal: spacing.xxl },
+  diaryCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginTop: spacing.lg,
+    padding: spacing.md,
+    borderRadius: radii.lg,
+  },
   topRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md, paddingHorizontal: spacing.xxl },
   profileBtn: {
     width: 40, height: 40, borderRadius: 20,

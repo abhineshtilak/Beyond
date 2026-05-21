@@ -1,7 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
-  TextInput,
   Pressable,
   Image,
   StyleSheet,
@@ -18,7 +17,6 @@ import * as ImagePicker from 'expo-image-picker';
 import {
   ChevronLeft,
   Check,
-  Sparkles,
   Image as ImageIcon,
   Video as VideoIcon,
   Play,
@@ -27,14 +25,11 @@ import {
 import { format } from 'date-fns';
 import { Text } from '@/components/Text';
 import { IconButton } from '@/components/IconButton';
-import { Sheet, SheetRef } from '@/components/Sheet';
 import { VoiceRecorder } from '@/components/VoiceRecorder';
 import { PlaybackWaveform } from '@/components/Waveform';
-import { Chip } from '@/components/Chip';
 import { radii, spacing, fonts, useColors } from '@/theme';
 import * as repo from '@/features/journal/repo';
 import { useJournalStore } from '@/features/journal/store';
-import { PROMPTS, findPrompt, MOOD_OPTIONS, type Mood } from '@/features/journal/types';
 import { htmlToPlainText } from '@/features/realizations/types';
 import type { Attachment } from '@/components/MediaAttachments';
 
@@ -42,23 +37,18 @@ export default function JournalScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const colors = useColors();
-  const params = useLocalSearchParams<{ id?: string; prompt?: string }>();
+  const params = useLocalSearchParams<{ id?: string }>();
   const refreshList = useJournalStore((s) => s.refresh);
 
   const editorRef = useRef<RichEditor>(null);
-  const promptSheetRef = useRef<SheetRef>(null);
-  const moodSheetRef = useRef<SheetRef>(null);
   const idRef = useRef<string | null>(params.id ?? null);
   const lastSavedRef = useRef('');
 
   const [html, setHtml] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const [promptKey, setPromptKey] = useState<string | null>(params.prompt ?? null);
-  const [mood, setMood] = useState<Mood | null>(null);
   const [createdAt, setCreatedAt] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Load if editing
   useEffect(() => {
     (async () => {
       if (!params.id) return;
@@ -66,16 +56,14 @@ export default function JournalScreen() {
       if (e) {
         setHtml(e.bodyHtml ?? '');
         setAttachments(e.attachments);
-        setPromptKey(e.promptKey);
-        setMood(e.mood);
         setCreatedAt(e.createdAt);
-        lastSavedRef.current = snapshot(e.bodyHtml ?? '', e.attachments, e.promptKey, e.mood);
+        lastSavedRef.current = snapshot(e.bodyHtml ?? '', e.attachments);
       }
     })();
   }, [params.id]);
 
-  const snapshot = (h = html, a = attachments, p = promptKey, m = mood) =>
-    JSON.stringify([h, a.map((x) => x.uri).join('|'), p, m]);
+  const snapshot = (h = html, a = attachments) =>
+    JSON.stringify([h, a.map((x) => x.uri).join('|')]);
 
   const hasContent = useCallback(() => {
     const plain = htmlToPlainText(html).trim();
@@ -92,8 +80,8 @@ export default function JournalScreen() {
         bodyHtml: html || null,
         content: plain,
         attachments,
-        promptKey,
-        mood,
+        promptKey: null,
+        mood: null,
       };
       if (idRef.current) {
         await repo.update(idRef.current, input);
@@ -108,14 +96,13 @@ export default function JournalScreen() {
     } finally {
       if (!silent) setSaving(false);
     }
-  }, [html, attachments, promptKey, mood, hasContent, refreshList]);
+  }, [html, attachments, hasContent, refreshList]);
 
-  // Auto-save
   useEffect(() => {
     if (!hasContent()) return;
     const t = setTimeout(() => save(true), 1500);
     return () => clearTimeout(t);
-  }, [html, attachments, promptKey, mood, hasContent, save]);
+  }, [html, attachments, hasContent, save]);
 
   const handleBack = async () => {
     Keyboard.dismiss();
@@ -161,9 +148,7 @@ export default function JournalScreen() {
     }
   };
 
-  const selectedPrompt = findPrompt(promptKey);
   const dirty = snapshot() !== lastSavedRef.current;
-  const placeholder = selectedPrompt?.question || 'What\'s on your mind?';
 
   return (
     <>
@@ -199,66 +184,14 @@ export default function JournalScreen() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Prompt + mood pills */}
-            <View style={styles.metaRow}>
-              <Pressable
-                onPress={() => promptSheetRef.current?.present()}
-                style={({ pressed }) => [
-                  styles.metaChip,
-                  {
-                    backgroundColor: selectedPrompt ? colors.accentSoft : colors.surface,
-                    borderColor: colors.hairline,
-                  },
-                  pressed && { opacity: 0.85 },
-                ]}
-              >
-                <Sparkles size={13} color={colors.textSoft} strokeWidth={1.75} />
-                <Text variant="caption" color={colors.text}>
-                  {selectedPrompt ? selectedPrompt.label.toUpperCase() : 'PICK A PROMPT'}
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => moodSheetRef.current?.present()}
-                style={({ pressed }) => [
-                  styles.metaChip,
-                  {
-                    backgroundColor: mood ? (MOOD_OPTIONS.find((m) => m.key === mood)?.tint ?? colors.surface) + '55' : colors.surface,
-                    borderColor: colors.hairline,
-                  },
-                  pressed && { opacity: 0.85 },
-                ]}
-              >
-                {mood ? (
-                  <View
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: 4,
-                      backgroundColor: MOOD_OPTIONS.find((m) => m.key === mood)?.tint,
-                    }}
-                  />
-                ) : null}
-                <Text variant="caption" color={colors.text}>
-                  {mood ? MOOD_OPTIONS.find((m) => m.key === mood)?.label.toUpperCase() : 'MOOD'}
-                </Text>
-              </Pressable>
-            </View>
-
-            {/* Prompt question (if any) */}
-            {selectedPrompt?.question ? (
-              <Text variant="h2" color={colors.textSoft} style={{ lineHeight: 30 }}>
-                {selectedPrompt.question}
-              </Text>
-            ) : null}
-
             {/* Blank canvas */}
             <View style={styles.editorWrap}>
               <RichEditor
                 ref={editorRef}
                 initialContentHTML={html}
                 onChange={setHtml}
-                placeholder={placeholder}
-                style={styles.editor}
+                placeholder="What's on your mind?"
+                style={{ flex: 1 }}
                 editorStyle={{
                   backgroundColor: colors.bg,
                   color: colors.text,
@@ -271,25 +204,20 @@ export default function JournalScreen() {
                   `,
                 }}
                 useContainer={false}
-                initialHeight={300}
+                initialHeight={360}
               />
             </View>
 
-            {/* Attachments */}
             {attachments.length > 0 ? (
               <View style={styles.attachmentsCol}>
                 {attachments.map((a, i) => (
-                  <AttachmentTile
-                    key={`${a.uri}-${i}`}
-                    item={a}
-                    onRemove={() => removeAttachment(i)}
-                  />
+                  <AttachmentTile key={`${a.uri}-${i}`} item={a} onRemove={() => removeAttachment(i)} />
                 ))}
               </View>
             ) : null}
           </ScrollView>
 
-          {/* Bottom action bar */}
+          {/* Bottom dock */}
           <View
             style={[
               styles.bottomBar,
@@ -328,64 +256,6 @@ export default function JournalScreen() {
             </View>
           </View>
         </KeyboardAvoidingView>
-
-        {/* Prompt picker */}
-        <Sheet
-          ref={promptSheetRef}
-          title="Pick a prompt"
-          subtitle="Or write without one — both are valid."
-          snapPoints={['80%']}
-        >
-          <Pressable
-            onPress={() => { setPromptKey(null); promptSheetRef.current?.dismiss(); }}
-            style={({ pressed }) => [
-              styles.promptRow,
-              { backgroundColor: colors.surface, borderColor: !promptKey ? colors.text : colors.hairline },
-              pressed && { opacity: 0.85 },
-            ]}
-          >
-            <Text variant="bodyMedium">No prompt</Text>
-            <Text variant="small" color={colors.textMuted} style={{ marginTop: 2 }}>Pure blank canvas.</Text>
-          </Pressable>
-          {PROMPTS.map((p) => (
-            <Pressable
-              key={p.key}
-              onPress={() => { setPromptKey(p.key); promptSheetRef.current?.dismiss(); }}
-              style={({ pressed }) => [
-                styles.promptRow,
-                { backgroundColor: colors.surface, borderColor: promptKey === p.key ? colors.text : colors.hairline },
-                pressed && { opacity: 0.85 },
-              ]}
-            >
-              <Text variant="bodyMedium">{p.label}</Text>
-              {p.question ? (
-                <Text variant="small" color={colors.textSoft} style={{ marginTop: 4 }}>
-                  {p.question}
-                </Text>
-              ) : null}
-              <Text variant="caption" color={colors.textMuted} style={{ marginTop: 4 }}>
-                {p.description}
-              </Text>
-            </Pressable>
-          ))}
-        </Sheet>
-
-        {/* Mood picker */}
-        <Sheet ref={moodSheetRef} title="How are you?" snapPoints={['50%']}>
-          <View style={{ flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' }}>
-            <Chip label="Clear" selected={!mood} size="sm" onPress={() => { setMood(null); moodSheetRef.current?.dismiss(); }} />
-            {MOOD_OPTIONS.map((m) => (
-              <Chip
-                key={m.key}
-                label={m.label}
-                tint={m.tint}
-                selected={mood === m.key}
-                size="sm"
-                onPress={() => { setMood(m.key); moodSheetRef.current?.dismiss(); }}
-              />
-            ))}
-          </View>
-        </Sheet>
       </SafeAreaView>
     </>
   );
@@ -442,15 +312,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
   },
   body: { paddingHorizontal: spacing.xxl, paddingTop: spacing.sm, gap: spacing.lg },
-  metaRow: { flexDirection: 'row', gap: spacing.sm },
-  metaChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: spacing.md, paddingVertical: 6,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-  },
-  editorWrap: { minHeight: 300 },
-  editor: { flex: 1 },
+  editorWrap: { minHeight: 360 },
   attachmentsCol: { gap: spacing.md, marginTop: spacing.sm },
   imageTile: {
     borderRadius: radii.lg,
@@ -491,11 +353,5 @@ const styles = StyleSheet.create({
     width: 44, height: 44, borderRadius: 22,
     borderWidth: 1,
     alignItems: 'center', justifyContent: 'center',
-  },
-  promptRow: {
-    padding: spacing.lg,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    marginBottom: spacing.sm,
   },
 });

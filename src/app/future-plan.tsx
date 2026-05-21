@@ -123,17 +123,30 @@ export default function FuturePlanScreen() {
           contentContainerStyle={{ paddingBottom: 80 + insets.bottom }}
           showsVerticalScrollIndicator={false}
         >
-          {/* HERO */}
-          <Pressable onPress={pickHero} style={styles.hero}>
+          {/* HERO — image area is its own press target, controls float above */}
+          <View style={styles.hero}>
             {imageUri ? (
-              <Image source={{ uri: imageUri }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+              <>
+                <Image source={{ uri: imageUri }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+                <Pressable
+                  onPress={pickHero}
+                  style={styles.changeImageChip}
+                  hitSlop={6}
+                >
+                  <ImagePlus size={14} color={colors.text} strokeWidth={1.75} />
+                  <Text variant="caption" color={colors.text}>CHANGE</Text>
+                </Pressable>
+              </>
             ) : (
-              <View style={[styles.heroPlaceholder, { backgroundColor: palette.skySoft }]}>
+              <Pressable
+                onPress={pickHero}
+                style={[styles.heroPlaceholder, { backgroundColor: palette.skySoft }]}
+              >
                 <ImagePlus size={32} color={colors.textMuted} strokeWidth={1.5} />
                 <Text variant="body" color={colors.textSoft} style={{ marginTop: spacing.sm }}>
-                  Add a visual
+                  Tap to add a visual
                 </Text>
-              </View>
+              </Pressable>
             )}
             <View style={styles.heroTop}>
               <IconButton icon={ChevronLeft} onPress={handleBack} bg="rgba(255,255,255,0.85)" />
@@ -153,7 +166,7 @@ export default function FuturePlanScreen() {
                 <Text variant="smallMedium" color={colors.bg}>Done</Text>
               </Pressable>
             </View>
-          </Pressable>
+          </View>
 
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <View style={styles.body}>
@@ -220,6 +233,14 @@ export default function FuturePlanScreen() {
 const styles = StyleSheet.create({
   hero: { height: 260, position: 'relative' },
   heroPlaceholder: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  changeImageChip: {
+    position: 'absolute',
+    bottom: spacing.md, left: spacing.lg,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: spacing.md, paddingVertical: 6,
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+  },
   heroTop: {
     position: 'absolute',
     top: spacing.md, left: spacing.lg, right: spacing.lg,

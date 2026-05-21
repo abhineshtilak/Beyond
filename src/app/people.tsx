@@ -1,13 +1,14 @@
 import React, { useCallback, useState } from 'react';
 import { View, FlatList, Pressable, Image, StyleSheet } from 'react-native';
 import { Stack, useRouter, useFocusEffect } from 'expo-router';
-import { ChevronLeft, Users, Heart, X as CloseIcon, Trash2 } from 'lucide-react-native';
+import { ChevronLeft, Users, Heart, X as CloseIcon } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Screen } from '@/components/Screen';
 import { Text } from '@/components/Text';
 import { IconButton } from '@/components/IconButton';
 import { EmptyState } from '@/components/EmptyState';
 import { Fab } from '@/components/Fab';
+import { SelectionDeleteBtn } from '@/components/SelectionDeleteBtn';
 import { radii, spacing, useColors } from '@/theme';
 import { confirm } from '@/lib/confirm';
 import { usePeopleStore } from '@/features/people/store';
@@ -115,19 +116,7 @@ export default function PeopleScreen() {
         />
 
         {selectionMode ? (
-          <View style={[styles.selBar, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-            <Pressable
-              onPress={bulkDelete}
-              style={({ pressed }) => [
-                styles.barBtn,
-                { backgroundColor: '#C97B6E' },
-                pressed && { opacity: 0.85 },
-              ]}
-            >
-              <Trash2 size={18} color={colors.bg} strokeWidth={1.8} />
-              <Text variant="smallMedium" color={colors.bg}>Remove</Text>
-            </Pressable>
-          </View>
+          <SelectionDeleteBtn onPress={bulkDelete} />
         ) : (
           <Fab onPress={() => openPerson()} />
         )}
