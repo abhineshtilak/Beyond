@@ -14,7 +14,6 @@ import {
   ChevronDown,
   ChevronUp,
   Quote as QuoteIcon,
-  Trash2,
   X as CloseIcon,
   NotebookPen,
   ArrowRight,
@@ -31,6 +30,7 @@ import { ProgressRing } from '@/components/ProgressRing';
 import { RotatingGreeting } from '@/components/RotatingGreeting';
 import { PlaybackWaveform } from '@/components/Waveform';
 import { spacing, radii, useColors, shadows } from '@/theme';
+import { SelectionDeleteBtn } from '@/components/SelectionDeleteBtn';
 import { ymd } from '@/lib/date';
 import { confirm } from '@/lib/confirm';
 import { useTasksStore, selectFiltered } from '@/features/tasks/store';
@@ -417,28 +417,21 @@ export default function HomeScreen() {
         </Pressable>
       ) : null}
 
-      {/* Selection bar */}
+      {/* Selection-mode actions */}
       {selectionMode ? (
-        <View
-          style={[
-            styles.selBar,
-            { backgroundColor: colors.surface, borderColor: colors.hairline },
-          ]}
-        >
-          <Pressable onPress={exitSelection} hitSlop={10} style={styles.selBarBtn}>
-            <CloseIcon size={20} color={colors.text} strokeWidth={2} />
-          </Pressable>
-          <Text variant="bodyMedium" style={{ flex: 1, textAlign: 'center' }}>
-            {selected.size} selected
-          </Text>
+        <>
           <Pressable
-            onPress={bulkDelete}
+            onPress={exitSelection}
             hitSlop={10}
-            style={[styles.selBarBtn, { backgroundColor: '#C97B6E' }]}
+            style={[
+              styles.selCancel,
+              { backgroundColor: colors.surface, borderColor: colors.hairline },
+            ]}
           >
-            <Trash2 size={18} color={colors.bg} strokeWidth={2} />
+            <CloseIcon size={18} color={colors.text} strokeWidth={2} />
           </Pressable>
-        </View>
+          <SelectionDeleteBtn onPress={bulkDelete} />
+        </>
       ) : null}
     </Screen>
   );
@@ -642,17 +635,13 @@ const styles = StyleSheet.create({
     ...shadows.soft,
   },
 
-  selBar: {
+  selCancel: {
     position: 'absolute',
-    left: spacing.lg, right: spacing.lg, bottom: 110,
-    flexDirection: 'row', alignItems: 'center',
-    padding: spacing.sm,
-    borderRadius: radii.xxl,
-    borderWidth: 1,
-    gap: spacing.md,
-  },
-  selBarBtn: {
+    left: spacing.xxl,
+    bottom: 96 + spacing.lg + 8,
     width: 40, height: 40, borderRadius: 20,
+    borderWidth: 1,
     alignItems: 'center', justifyContent: 'center',
+    ...shadows.soft,
   },
 });

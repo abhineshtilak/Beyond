@@ -1,7 +1,8 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { View, FlatList, Pressable, Image, StyleSheet } from 'react-native';
 import { Stack, useRouter, useFocusEffect } from 'expo-router';
-import { ChevronLeft, Compass, Calendar as CalIcon, X as CloseIcon, Trash2 } from 'lucide-react-native';
+import { ChevronLeft, Compass, Calendar as CalIcon, X as CloseIcon } from 'lucide-react-native';
+import { SelectionDeleteBtn } from '@/components/SelectionDeleteBtn';
 import { format, parseISO } from 'date-fns';
 import * as Haptics from 'expo-haptics';
 import { Screen } from '@/components/Screen';
@@ -167,19 +168,7 @@ export default function FuturePlansScreen() {
         </View>
 
         {selectionMode ? (
-          <View style={[styles.selBar, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-            <Pressable
-              onPress={bulkDelete}
-              style={({ pressed }) => [
-                styles.barBtn,
-                { backgroundColor: '#C97B6E' },
-                pressed && { opacity: 0.85 },
-              ]}
-            >
-              <Trash2 size={18} color={colors.bg} strokeWidth={1.8} />
-              <Text variant="smallMedium" color={colors.bg}>Delete</Text>
-            </Pressable>
-          </View>
+          <SelectionDeleteBtn onPress={bulkDelete} />
         ) : (
           <Fab onPress={() => router.push('/future-plan')} />
         )}

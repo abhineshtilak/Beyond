@@ -8,7 +8,6 @@ import {
   BookOpen,
   Search,
   Quote,
-  Trash2,
   X as CloseIcon,
   Image as ImageIcon,
   Mic,
@@ -20,6 +19,7 @@ import { Chip } from '@/components/Chip';
 import { IconButton } from '@/components/IconButton';
 import { EmptyState } from '@/components/EmptyState';
 import { Fab } from '@/components/Fab';
+import { SelectionDeleteBtn } from '@/components/SelectionDeleteBtn';
 import { colors, radii, spacing, typeScale } from '@/theme';
 import { confirm } from '@/lib/confirm';
 import { useRealizationsStore } from '@/features/realizations/store';
@@ -178,12 +178,7 @@ export default function RealizationsScreen() {
         />
 
         {selectionMode ? (
-          <View style={styles.actionBar}>
-            <Pressable onPress={bulkDelete} style={({ pressed }) => [styles.barBtn, styles.barDanger, pressed && { opacity: 0.8 }]}>
-              <Trash2 size={18} color={colors.bg} strokeWidth={1.8} />
-              <Text variant="smallMedium" color={colors.bg}>Delete</Text>
-            </Pressable>
-          </View>
+          <SelectionDeleteBtn onPress={bulkDelete} />
         ) : (
           <Fab onPress={openNew} />
         )}
