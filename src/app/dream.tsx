@@ -14,20 +14,20 @@ import {
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { ChevronLeft, Check, ImagePlus, X, Trash2 } from 'lucide-react-native';
+import { ChevronLeft, Check, ImagePlus, X } from 'lucide-react-native';
 import { format } from 'date-fns';
 import { IconButton } from '@/components/IconButton';
 import { Text } from '@/components/Text';
 import { MediaAttachments } from '@/components/MediaAttachments';
 import type { Attachment } from '@/components/MediaAttachments';
-import { colors, palette, radii, spacing, typeScale } from '@/theme';
-import { confirm } from '@/lib/confirm';
+import { radii, spacing, typeScale, useColors } from '@/theme';
 import * as repo from '@/features/dreams/repo';
 import { useDreamsStore } from '@/features/dreams/store';
 
 export default function DreamScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const colors = useColors();
   const params = useLocalSearchParams<{ id?: string }>();
   const refreshList = useDreamsStore((s) => s.refresh);
 
@@ -63,10 +63,6 @@ export default function DreamScreen() {
     })();
   }, [params.id]);
 
-  const hasContent = useCallback(() => {
-    return !!(title.trim() || description.trim() || why.trim() || imageUri || attachments.length > 0);
-  }, [title, description, why, imageUri, attachments]);
-
   const isDirty = useCallback(() => {
     const l = lastSavedRef.current;
     return title !== l.title || description !== l.description || why !== l.why
@@ -88,14 +84,17 @@ export default function DreamScreen() {
       if (idRef.current) {
         await repo.update(idRef.current, input);
       } else {
-        const created = await repo.create(input);
-        idRef.current = created.id;
+        const c = await repo.create(input);
+        idRef.current = c.id;
       }
       lastSavedRef.current = {
         title, description, why, imageUri, attCount: attachments.length,
       };
       await refreshList();
       return true;
+    } catch (e) {
+      console.warn('dream save failed', e);
+      return false;
     } finally {
       if (!silent) setSaving(false);
     }
@@ -113,7 +112,6 @@ export default function DreamScreen() {
     router.back();
   };
 
-  // Auto-save
   useEffect(() => {
     if (!title.trim()) return;
     const t = setTimeout(() => { save(true); }, 1500);
@@ -134,119 +132,117 @@ export default function DreamScreen() {
     if (!res.canceled && res.assets?.[0]) setImageUri(res.assets[0].uri);
   };
 
-  const handleDelete = async () => {
-    if (!idRef.current) {
-      router.back();
-      return;
-    }
-    const ok = await confirm({
-      title: 'Let go of this dream?',
-      confirmLabel: 'Delete',
-      destructive: true,
-    });
-    if (!ok) return;
-    await repo.remove(idRef.current);
-    await refreshList();
-    router.back();
-  };
-
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <SafeAreaView style={styles.root} edges={['top']}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>
+        {/* TOP ACTION BAR — separate from hero */}
+        <View style={[styles.topBar, { backgroundColor: colors.bg }]}>
+          <IconButton icon={ChevronLeft} onPress={handleBack} bg={colors.surface} />
+          <View style={{ flex: 1 }} />
+          <Pressable
+            onPress={handleDone}
+            hitSlop={8}
+            style={({ pressed }) => [
+              styles.doneBtn,
+              { backgroundColor: colors.text },
+              !title.trim() && { opacity: 0.4 },
+              pressed && { opacity: 0.85 },
+            ]}
+            disabled={!title.trim()}
+          >
+            <Check size={16} color={colors.bg} strokeWidth={2.5} />
+            <Text variant="smallMedium" color={colors.bg}>Done</Text>
+          </Pressable>
+        </View>
+
         <ScrollView
           contentContainerStyle={{ paddingBottom: 80 + insets.bottom }}
           showsVerticalScrollIndicator={false}
         >
-          {/* HERO — image area is its own press target so controls aren't intercepted */}
-          <View style={styles.hero}>
-            {imageUri ? (
-              <>
-                <Image source={{ uri: imageUri }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
-                <Pressable
-                  onPress={pickHero}
-                  hitSlop={6}
-                  style={styles.changeImageChip}
-                >
-                  <ImagePlus size={14} color={colors.text} strokeWidth={1.75} />
-                  <Text variant="caption" color={colors.text}>CHANGE</Text>
-                </Pressable>
-              </>
-            ) : (
+          {/* HERO */}
+          {imageUri ? (
+            <View style={styles.hero}>
+              <Image source={{ uri: imageUri }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+              <Pressable
+                onPress={() => setImageUri(null)}
+                style={styles.heroRemove}
+                hitSlop={6}
+              >
+                <X size={14} color={colors.text} strokeWidth={2} />
+              </Pressable>
               <Pressable
                 onPress={pickHero}
-                style={[styles.heroPlaceholder, { backgroundColor: palette.lavenderSoft }]}
+                style={styles.changeImageChip}
+                hitSlop={6}
               >
-                <ImagePlus size={36} color={colors.textMuted} strokeWidth={1.5} />
-                <Text variant="bodyMedium" color={colors.textSoft} style={{ marginTop: spacing.sm }}>
-                  Tap to add a visual
+                <ImagePlus size={12} color={colors.text} strokeWidth={1.75} />
+                <Text variant="caption" color={colors.text}>CHANGE</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable
+              onPress={pickHero}
+              style={[styles.heroPlaceholder, { backgroundColor: colors.lavenderSoft }]}
+            >
+              <ImagePlus size={32} color={colors.textMuted} strokeWidth={1.5} />
+              <Text variant="bodyMedium" color={colors.textSoft} style={{ marginTop: spacing.sm }}>
+                Tap to add a visual
+              </Text>
+            </Pressable>
+          )}
+
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <View style={styles.body}>
+              <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
+                {created ? format(created, 'MMMM d, yyyy') : 'New dream'} · {saving ? 'Saving' : isDirty() ? 'Unsaved' : 'Saved'}
+              </Text>
+
+              <TextInput
+                value={title}
+                onChangeText={setTitle}
+                placeholder="The dream"
+                placeholderTextColor={colors.textFaint}
+                style={[typeScale.display, styles.titleInput, { color: colors.text }]}
+                multiline
+              />
+
+              <View style={styles.section}>
+                <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
+                  Describe it
                 </Text>
-              </Pressable>
-            )}
-            <View style={styles.heroTop}>
-              <IconButton icon={ChevronLeft} onPress={handleBack} bg="rgba(255,255,255,0.85)" />
-              <View style={{ flex: 1 }} />
-              {imageUri ? (
-                <Pressable onPress={() => setImageUri(null)} hitSlop={6} style={styles.heroRemove}>
-                  <X size={16} color={colors.text} strokeWidth={2} />
-                </Pressable>
-              ) : null}
-              <Pressable onPress={handleDone} hitSlop={6} style={[styles.doneBtn, !title.trim() && { opacity: 0.5 }]} disabled={!title.trim()}>
-                <Check size={16} color={colors.bg} strokeWidth={2.5} />
-                <Text variant="smallMedium" color={colors.bg}>Done</Text>
-              </Pressable>
+                <TextInput
+                  value={description}
+                  onChangeText={setDescription}
+                  placeholder="What does this look like? Picture the scene in detail."
+                  placeholderTextColor={colors.textFaint}
+                  multiline
+                  style={[typeScale.body, styles.textArea, { color: colors.text, backgroundColor: colors.surface, borderColor: colors.hairline }]}
+                />
+              </View>
+
+              <View style={styles.section}>
+                <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
+                  Why it pulls at you
+                </Text>
+                <TextInput
+                  value={why}
+                  onChangeText={setWhy}
+                  placeholder="Why does this dream matter? What does it represent?"
+                  placeholderTextColor={colors.textFaint}
+                  multiline
+                  style={[typeScale.body, styles.textArea, { color: colors.text, backgroundColor: colors.surface, borderColor: colors.hairline }]}
+                />
+              </View>
+
+              <View style={styles.section}>
+                <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
+                  Voices, photos, videos
+                </Text>
+                <MediaAttachments attachments={attachments} onChange={setAttachments} />
+              </View>
             </View>
-          </View>
-
-          <View style={styles.body}>
-            <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
-              {created ? format(created, 'MMMM d, yyyy') : 'New dream'} · {saving ? 'Saving' : isDirty() ? 'Unsaved' : 'Saved'}
-            </Text>
-
-            <TextInput
-              value={title}
-              onChangeText={setTitle}
-              placeholder="The dream"
-              placeholderTextColor={colors.textFaint}
-              style={[typeScale.display, styles.titleInput]}
-              multiline
-            />
-
-            <View style={styles.section}>
-              <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
-                Describe it
-              </Text>
-              <TextInput
-                value={description}
-                onChangeText={setDescription}
-                placeholder="What does this look like? Picture the scene in detail."
-                placeholderTextColor={colors.textFaint}
-                multiline
-                style={[typeScale.body, styles.textArea]}
-              />
-            </View>
-
-            <View style={styles.section}>
-              <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
-                Why it pulls at you
-              </Text>
-              <TextInput
-                value={why}
-                onChangeText={setWhy}
-                placeholder="Why does this dream matter? What does it represent?"
-                placeholderTextColor={colors.textFaint}
-                multiline
-                style={[typeScale.body, styles.textArea]}
-              />
-            </View>
-
-            <View style={styles.section}>
-              <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
-                Voices, photos, videos
-              </Text>
-              <MediaAttachments attachments={attachments} onChange={setAttachments} />
-            </View>
-          </View>
+          </KeyboardAvoidingView>
         </ScrollView>
       </SafeAreaView>
     </>
@@ -254,9 +250,27 @@ export default function DreamScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
-  hero: { height: 280, position: 'relative' },
-  heroPlaceholder: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.xxl,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+    zIndex: 10,
+  },
+  doneBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: spacing.lg, paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
+  },
+  hero: { height: 240, position: 'relative' },
+  heroPlaceholder: {
+    height: 200, alignItems: 'center', justifyContent: 'center',
+    marginHorizontal: spacing.xxl,
+    borderRadius: radii.xl,
+    marginBottom: spacing.lg,
+  },
   changeImageChip: {
     position: 'absolute',
     bottom: spacing.md, left: spacing.lg,
@@ -265,44 +279,21 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     backgroundColor: 'rgba(255,255,255,0.85)',
   },
-  heroTop: {
-    position: 'absolute',
-    top: spacing.md, left: spacing.lg, right: spacing.lg,
-    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-  },
   heroRemove: {
-    width: 36, height: 36, borderRadius: 18,
+    position: 'absolute',
+    top: spacing.md, right: spacing.lg,
+    width: 32, height: 32, borderRadius: 16,
     backgroundColor: 'rgba(255,255,255,0.85)',
     alignItems: 'center', justifyContent: 'center',
   },
-  doneBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    backgroundColor: colors.text, borderRadius: radii.pill,
-  },
-  body: { paddingHorizontal: spacing.xxl, paddingTop: spacing.xl, gap: spacing.lg },
-  titleInput: { color: colors.text, padding: 0, minHeight: 50 },
+  body: { paddingHorizontal: spacing.xxl, paddingTop: spacing.lg, gap: spacing.lg },
+  titleInput: { padding: 0, minHeight: 50 },
   section: { gap: spacing.sm },
   textArea: {
-    color: colors.text,
-    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.hairline,
     borderRadius: radii.lg,
     padding: spacing.lg,
     minHeight: 80,
     textAlignVertical: 'top',
-  },
-  deleteBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.lg,
-    marginTop: spacing.md,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: '#E8D0CB',
-    backgroundColor: '#F7E9E5',
   },
 });

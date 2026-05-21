@@ -171,8 +171,8 @@ export default function HomeScreen() {
       {/* Stats */}
       <View style={styles.statsRow}>
         <StatBox label="Journal streak" value={journalStreak.toString()} tint={colors.accentSoft} sub={`${todayJournalCount} TODAY`} icon={Flame} />
-        <StatBox label="Habits today" value={`${habitsDone}/${habits.length || 0}`} tint="#F4ECD3" />
-        <StatBox label="Tasks done" value={completedToday.toString()} tint="#F7E3D9" />
+        <StatBox label="Habits today" value={`${habitsDone}/${habits.length || 0}`} tint={colors.butterSoft} />
+        <StatBox label="Tasks done" value={completedToday.toString()} tint={colors.peachSoft} />
       </View>
 
       {/* Goals — toggle */}

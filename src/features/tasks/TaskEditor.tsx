@@ -97,6 +97,21 @@ export const TaskEditor = forwardRef<TaskEditorRef>(function TaskEditor(_, ref) 
       ref={sheetRef}
       title={editing ? 'Edit task' : 'New task'}
       snapPoints={['85%']}
+      headerRight={
+        editing ? (
+          <Pressable
+            onPress={handleDelete}
+            hitSlop={10}
+            style={({ pressed }) => [
+              styles.headerTrash,
+              { backgroundColor: '#F7E9E5' },
+              pressed && { opacity: 0.7 },
+            ]}
+          >
+            <Trash2 size={16} color="#B97A6B" strokeWidth={1.75} />
+          </Pressable>
+        ) : null
+      }
       footer={
         <Button label={editing ? 'Save changes' : 'Add task'} onPress={handleSave} loading={saving} disabled={!title.trim()} />
       }
@@ -205,12 +220,6 @@ export const TaskEditor = forwardRef<TaskEditorRef>(function TaskEditor(_, ref) 
         <GoalPicker value={goalId} onChange={setGoalId} />
       </View>
 
-      {editing ? (
-        <Pressable onPress={handleDelete} style={({ pressed }) => [styles.deleteBtn, pressed && { opacity: 0.7 }]}>
-          <Trash2 size={16} color="#B97A6B" strokeWidth={1.75} />
-          <Text variant="bodyMedium" color="#B97A6B">Delete task</Text>
-        </Pressable>
-      ) : null}
     </Sheet>
   );
 });
@@ -231,16 +240,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },
-  deleteBtn: {
-    flexDirection: 'row',
+  headerTrash: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.lg,
-    marginTop: spacing.sm,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: '#E8D0CB',
-    backgroundColor: '#F7E9E5',
   },
 });

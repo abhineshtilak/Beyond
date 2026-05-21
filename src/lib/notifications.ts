@@ -48,7 +48,8 @@ export function configureHandler() {
         name: 'Reminders',
         importance: N.AndroidImportance?.HIGH ?? 4,
         vibrationPattern: [0, 250, 250, 250],
-        sound: 'default',
+        // Omit `sound` to use the system default notification tone — passing 'default' here
+        // is interpreted as a custom asset name that must be bundled at build time.
       }).catch(() => {});
     }
   } catch {}
@@ -78,7 +79,7 @@ export async function scheduleWeekly(
   for (const d of daysOfWeek) {
     try {
       const id = await N.scheduleNotificationAsync({
-        content: { title, body, sound: 'default' },
+        content: { title, body },
         trigger: {
           type: N.SchedulableTriggerInputTypes.WEEKLY,
           weekday: d + 1, // Expo: 1=Sun..7=Sat
@@ -107,7 +108,7 @@ export async function scheduleOnce(
     let target = setSeconds(setMinutes(setHours(parseISO(dueDate), hm.hour), hm.minute), 0);
     if (isBefore(target, new Date())) target = addDays(target, 1);
     const id = await N.scheduleNotificationAsync({
-      content: { title, body, sound: 'default' },
+      content: { title, body },
       trigger: {
         type: N.SchedulableTriggerInputTypes.DATE,
         date: target,

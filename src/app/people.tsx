@@ -14,6 +14,7 @@ import { confirm } from '@/lib/confirm';
 import { usePeopleStore } from '@/features/people/store';
 import { RELATION_META, type Person } from '@/features/people/types';
 import * as repo from '@/features/people/repo';
+import { CelebrationsCalendar } from '@/features/people/CelebrationsCalendar';
 
 export default function PeopleScreen() {
   const router = useRouter();
@@ -94,6 +95,14 @@ export default function PeopleScreen() {
                   ? 'Tap to add or remove from selection.'
                   : 'Relationships are tended, not stored. Long-press a card to begin selection.'}
               </Text>
+              {!selectionMode && items.length > 0 ? (
+                <View style={{ marginTop: spacing.sm }}>
+                  <CelebrationsCalendar
+                    people={items}
+                    onPersonTap={(id) => openPerson(id)}
+                  />
+                </View>
+              ) : null}
             </View>
           }
           renderItem={({ item }) => (

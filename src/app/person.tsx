@@ -19,16 +19,17 @@ import {
   Check,
   Camera,
   Heart,
-  Trash2,
   Bell,
   Calendar as CalIcon,
+  Cake,
+  Sparkle,
 } from 'lucide-react-native';
 import { format, parseISO } from 'date-fns';
 import { Text } from '@/components/Text';
 import { IconButton } from '@/components/IconButton';
 import { Chip } from '@/components/Chip';
 import { InlineCalendar } from '@/components/InlineCalendar';
-import { colors, radii, spacing, typeScale } from '@/theme';
+import { radii, spacing, typeScale, useColors } from '@/theme';
 import { confirm } from '@/lib/confirm';
 import { ymd } from '@/lib/date';
 import * as repo from '@/features/people/repo';
@@ -45,6 +46,7 @@ const FREQ_PRESETS = [
 export default function PersonScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const colors = useColors();
   const params = useLocalSearchParams<{ id?: string }>();
   const refreshList = usePeopleStore((s) => s.refresh);
 
@@ -61,14 +63,18 @@ export default function PersonScreen() {
   const [futurePlans, setFuturePlans] = useState('');
   const [lastContactDate, setLastContactDate] = useState<string | null>(null);
   const [contactReminderDays, setContactReminderDays] = useState<number | null>(null);
+  const [birthday, setBirthday] = useState<string | null>(null);
+  const [anniversary, setAnniversary] = useState<string | null>(null);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [showBirthdayCal, setShowBirthdayCal] = useState(false);
+  const [showAnniversaryCal, setShowAnniversaryCal] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const lastSavedRef = useRef<string>('');
 
   const snapshot = () =>
-    [name, relation, photoUri, notes, theirGoals, theirStruggles, mySupport, contributions, futurePlans, lastContactDate, contactReminderDays].join('§');
+    [name, relation, photoUri, notes, theirGoals, theirStruggles, mySupport, contributions, futurePlans, lastContactDate, contactReminderDays, birthday, anniversary].join('§');
 
   useEffect(() => {
     (async () => {
@@ -86,7 +92,9 @@ export default function PersonScreen() {
         setFuturePlans(p.futurePlans ?? '');
         setLastContactDate(p.lastContactDate);
         setContactReminderDays(p.contactReminderDays);
-        lastSavedRef.current = [p.name, p.relation, p.photoUri, p.notes, p.theirGoals, p.theirStruggles, p.mySupport, p.contributions, p.futurePlans, p.lastContactDate, p.contactReminderDays].join('§');
+        setBirthday(p.birthday);
+        setAnniversary(p.anniversary);
+        lastSavedRef.current = [p.name, p.relation, p.photoUri, p.notes, p.theirGoals, p.theirStruggles, p.mySupport, p.contributions, p.futurePlans, p.lastContactDate, p.contactReminderDays, p.birthday, p.anniversary].join('§');
       }
     })();
   }, [params.id]);
@@ -108,6 +116,8 @@ export default function PersonScreen() {
         futurePlans: futurePlans.trim() || null,
         lastContactDate,
         contactReminderDays,
+        birthday,
+        anniversary,
       };
       if (idRef.current) {
         await repo.update(idRef.current, input);
@@ -122,14 +132,14 @@ export default function PersonScreen() {
     } finally {
       if (!silent) setSaving(false);
     }
-  }, [name, relation, photoUri, notes, theirGoals, theirStruggles, mySupport, contributions, futurePlans, lastContactDate, contactReminderDays, refreshList]);
+  }, [name, relation, photoUri, notes, theirGoals, theirStruggles, mySupport, contributions, futurePlans, lastContactDate, contactReminderDays, birthday, anniversary, refreshList]);
 
   // Auto-save
   useEffect(() => {
     if (!name.trim()) return;
     const t = setTimeout(() => { save(true); }, 1500);
     return () => clearTimeout(t);
-  }, [name, relation, photoUri, notes, theirGoals, theirStruggles, mySupport, contributions, futurePlans, lastContactDate, contactReminderDays, save]);
+  }, [name, relation, photoUri, notes, theirGoals, theirStruggles, mySupport, contributions, futurePlans, lastContactDate, contactReminderDays, birthday, anniversary, save]);
 
   const handleBack = async () => {
     Keyboard.dismiss();
@@ -188,7 +198,7 @@ export default function PersonScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <SafeAreaView style={styles.root} edges={['top']}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>
         <View style={styles.header}>
           <IconButton icon={ChevronLeft} onPress={handleBack} bg={colors.surface} />
           <View style={{ flex: 1 }}>
@@ -202,7 +212,7 @@ export default function PersonScreen() {
           <Pressable
             onPress={handleDone}
             hitSlop={8}
-            style={[styles.doneBtn, !name.trim() && { opacity: 0.5 }]}
+            style={[styles.doneBtn, { backgroundColor: colors.text }, !name.trim() && { opacity: 0.5 }]}
             disabled={!name.trim()}
           >
             <Check size={16} color={name.trim() ? colors.bg : colors.textFaint} strokeWidth={2.5} />
@@ -233,7 +243,7 @@ export default function PersonScreen() {
                 onChangeText={setName}
                 placeholder="Their name"
                 placeholderTextColor={colors.textFaint}
-                style={[typeScale.h1, styles.nameInput]}
+                style={[typeScale.h1, styles.nameInput, { color: colors.text }]}
               />
             </View>
 
@@ -251,6 +261,56 @@ export default function PersonScreen() {
                   />
                 ))}
               </View>
+            </Section>
+
+            {/* Birthday */}
+            <Section label="Birthday" icon={Cake}>
+              <Pressable
+                onPress={() => { setShowBirthdayCal((v) => !v); setShowAnniversaryCal(false); }}
+                style={[styles.lastContactRow, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
+              >
+                <Text variant="body" color={birthday ? colors.text : colors.textMuted}>
+                  {birthday ? format(parseISO(birthday), 'MMMM d, yyyy') : 'Not set'}
+                </Text>
+                {birthday ? (
+                  <Pressable onPress={() => setBirthday(null)} hitSlop={8}>
+                    <Text variant="smallMedium" color={colors.textMuted}>Clear</Text>
+                  </Pressable>
+                ) : null}
+              </Pressable>
+              {showBirthdayCal ? (
+                <View style={{ marginTop: spacing.sm }}>
+                  <InlineCalendar
+                    selected={birthday}
+                    onSelect={(d) => { setBirthday(d); setShowBirthdayCal(false); }}
+                  />
+                </View>
+              ) : null}
+            </Section>
+
+            {/* Anniversary */}
+            <Section label="Anniversary" icon={Sparkle}>
+              <Pressable
+                onPress={() => { setShowAnniversaryCal((v) => !v); setShowBirthdayCal(false); }}
+                style={[styles.lastContactRow, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
+              >
+                <Text variant="body" color={anniversary ? colors.text : colors.textMuted}>
+                  {anniversary ? format(parseISO(anniversary), 'MMMM d, yyyy') : 'Not set'}
+                </Text>
+                {anniversary ? (
+                  <Pressable onPress={() => setAnniversary(null)} hitSlop={8}>
+                    <Text variant="smallMedium" color={colors.textMuted}>Clear</Text>
+                  </Pressable>
+                ) : null}
+              </Pressable>
+              {showAnniversaryCal ? (
+                <View style={{ marginTop: spacing.sm }}>
+                  <InlineCalendar
+                    selected={anniversary}
+                    onSelect={(d) => { setAnniversary(d); setShowAnniversaryCal(false); }}
+                  />
+                </View>
+              ) : null}
             </Section>
 
             {/* Stay-in-touch reminder */}
@@ -301,11 +361,12 @@ export default function PersonScreen() {
 }
 
 function Section({ label, icon: Icon, children }: { label: string; icon?: any; children: React.ReactNode }) {
+  const c = useColors();
   return (
     <View style={styles.section}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        {Icon ? <Icon size={14} color={colors.textMuted} strokeWidth={1.75} /> : null}
-        <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>{label}</Text>
+        {Icon ? <Icon size={14} color={c.textMuted} strokeWidth={1.75} /> : null}
+        <Text variant="caption" color={c.textMuted} style={{ textTransform: 'uppercase' }}>{label}</Text>
       </View>
       {children}
     </View>
@@ -313,23 +374,27 @@ function Section({ label, icon: Icon, children }: { label: string; icon?: any; c
 }
 
 function LongInput({ label, value, onChangeText, placeholder }: { label: string; value: string; onChangeText: (v: string) => void; placeholder: string }) {
+  const c = useColors();
   return (
     <View style={styles.section}>
-      <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>{label}</Text>
+      <Text variant="caption" color={c.textMuted} style={{ textTransform: 'uppercase' }}>{label}</Text>
       <TextInput
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={colors.textFaint}
+        placeholderTextColor={c.textFaint}
         multiline
-        style={[typeScale.body, styles.textArea]}
+        style={[
+          typeScale.body,
+          styles.textArea,
+          { color: c.text, backgroundColor: c.surface, borderColor: c.hairline },
+        ]}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.md,
     paddingHorizontal: spacing.xxl, paddingTop: spacing.md, paddingBottom: spacing.md,
@@ -337,7 +402,7 @@ const styles = StyleSheet.create({
   doneBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    backgroundColor: colors.text, borderRadius: radii.pill,
+    borderRadius: radii.pill,
   },
   body: { paddingHorizontal: spacing.xxl, paddingTop: spacing.md, gap: spacing.lg },
   headerCard: { alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md },
@@ -347,26 +412,18 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   photo: { width: '100%', height: '100%' },
-  nameInput: { color: colors.text, padding: 0, textAlign: 'center', minHeight: 36 },
+  nameInput: { padding: 0, textAlign: 'center', minHeight: 36 },
   section: { gap: spacing.sm },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   lastContactRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: colors.surface, borderColor: colors.hairline, borderWidth: 1,
+    borderWidth: 1,
     borderRadius: radii.lg, paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
   },
   textArea: {
-    color: colors.text,
-    backgroundColor: colors.surface,
-    borderColor: colors.hairline, borderWidth: 1,
+    borderWidth: 1,
     borderRadius: radii.lg,
     padding: spacing.lg, minHeight: 70,
     textAlignVertical: 'top',
-  },
-  deleteBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm,
-    paddingVertical: spacing.lg, marginTop: spacing.md,
-    borderRadius: radii.lg, borderWidth: 1,
-    borderColor: '#E8D0CB', backgroundColor: '#F7E9E5',
   },
 });

@@ -18,6 +18,8 @@ type Row = {
   last_contact_date: string | null;
   contact_reminder_days: number | null;
   notification_id: string | null;
+  birthday: string | null;
+  anniversary: string | null;
   created_at: number;
 };
 
@@ -35,6 +37,8 @@ const toPerson = (r: Row): Person => ({
   lastContactDate: r.last_contact_date,
   contactReminderDays: r.contact_reminder_days,
   notificationId: r.notification_id,
+  birthday: r.birthday,
+  anniversary: r.anniversary,
   createdAt: r.created_at,
 });
 
@@ -68,13 +72,15 @@ export async function create(input: PersonInput): Promise<Person> {
   const id = uid();
   const now = Date.now();
   await db.runAsync(
-    `INSERT INTO people (id, name, relation, photo_uri, notes, their_goals, their_struggles, my_support, contributions, future_plans, last_contact_date, contact_reminder_days, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO people (id, name, relation, photo_uri, notes, their_goals, their_struggles, my_support, contributions, future_plans, last_contact_date, contact_reminder_days, birthday, anniversary, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id, input.name.trim(), input.relation ?? null, input.photoUri ?? null, input.notes ?? null,
       input.theirGoals ?? null, input.theirStruggles ?? null, input.mySupport ?? null,
       input.contributions ?? null, input.futurePlans ?? null,
-      input.lastContactDate ?? null, input.contactReminderDays ?? null, now,
+      input.lastContactDate ?? null, input.contactReminderDays ?? null,
+      input.birthday ?? null, input.anniversary ?? null,
+      now,
     ],
   );
   const person = await get(id);
@@ -101,14 +107,18 @@ export async function update(id: string, patch: Partial<PersonInput>): Promise<v
     futurePlans: patch.futurePlans !== undefined ? patch.futurePlans : existing.futurePlans,
     lastContactDate: patch.lastContactDate !== undefined ? patch.lastContactDate : existing.lastContactDate,
     contactReminderDays: patch.contactReminderDays !== undefined ? patch.contactReminderDays : existing.contactReminderDays,
+    birthday: patch.birthday !== undefined ? patch.birthday : existing.birthday,
+    anniversary: patch.anniversary !== undefined ? patch.anniversary : existing.anniversary,
   };
   await db.runAsync(
-    `UPDATE people SET name = ?, relation = ?, photo_uri = ?, notes = ?, their_goals = ?, their_struggles = ?, my_support = ?, contributions = ?, future_plans = ?, last_contact_date = ?, contact_reminder_days = ? WHERE id = ?`,
+    `UPDATE people SET name = ?, relation = ?, photo_uri = ?, notes = ?, their_goals = ?, their_struggles = ?, my_support = ?, contributions = ?, future_plans = ?, last_contact_date = ?, contact_reminder_days = ?, birthday = ?, anniversary = ? WHERE id = ?`,
     [
       merged.name, merged.relation, merged.photoUri, merged.notes,
       merged.theirGoals, merged.theirStruggles, merged.mySupport,
       merged.contributions, merged.futurePlans,
-      merged.lastContactDate, merged.contactReminderDays, id,
+      merged.lastContactDate, merged.contactReminderDays,
+      merged.birthday, merged.anniversary,
+      id,
     ],
   );
   const next = await get(id);

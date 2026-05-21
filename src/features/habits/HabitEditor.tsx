@@ -102,6 +102,21 @@ export const HabitEditor = forwardRef<HabitEditorRef>(function HabitEditor(_, re
       ref={sheetRef}
       title={editing ? 'Edit habit' : 'New habit'}
       snapPoints={['92%']}
+      headerRight={
+        editing ? (
+          <Pressable
+            onPress={handleDelete}
+            hitSlop={10}
+            style={({ pressed }) => [
+              styles.headerTrash,
+              { backgroundColor: '#F7E9E5' },
+              pressed && { opacity: 0.7 },
+            ]}
+          >
+            <Trash2 size={16} color="#B97A6B" strokeWidth={1.75} />
+          </Pressable>
+        ) : null
+      }
       footer={<Button label={editing ? 'Save changes' : 'Add habit'} onPress={handleSave} loading={saving} disabled={!title.trim()} />}
     >
       <View style={styles.previewWrap}>
@@ -204,12 +219,6 @@ export const HabitEditor = forwardRef<HabitEditorRef>(function HabitEditor(_, re
         <GoalPicker value={goalId} onChange={setGoalId} />
       </View>
 
-      {editing ? (
-        <Pressable onPress={handleDelete} style={({ pressed }) => [styles.deleteBtn, pressed && { opacity: 0.7 }]}>
-          <Trash2 size={16} color="#B97A6B" strokeWidth={1.75} />
-          <Text variant="bodyMedium" color="#B97A6B">Delete habit</Text>
-        </Pressable>
-      ) : null}
     </Sheet>
   );
 });
@@ -247,16 +256,8 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   swatch: { flex: 1, borderRadius: 999 },
-  deleteBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.lg,
-    marginTop: spacing.sm,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: '#E8D0CB',
-    backgroundColor: '#F7E9E5',
+  headerTrash: {
+    width: 32, height: 32, borderRadius: 16,
+    alignItems: 'center', justifyContent: 'center',
   },
 });

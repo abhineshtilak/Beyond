@@ -19,7 +19,7 @@ import { format, parseISO } from 'date-fns';
 import { Text } from '@/components/Text';
 import { IconButton } from '@/components/IconButton';
 import { InlineCalendar } from '@/components/InlineCalendar';
-import { radii, spacing, typeScale, useColors, palette } from '@/theme';
+import { radii, spacing, typeScale, useColors } from '@/theme';
 import * as repo from '@/features/future/repo';
 import { useFutureStore } from '@/features/future/store';
 
@@ -76,6 +76,9 @@ export default function FuturePlanScreen() {
       lastSavedRef.current = snapshot();
       await refreshList();
       return true;
+    } catch (e) {
+      console.warn('future-plan save failed', e);
+      return false;
     } finally {
       if (!silent) setSaving(false);
     }
@@ -119,54 +122,61 @@ export default function FuturePlanScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>
+        {/* TOP ACTION BAR — completely separate from hero, no overlap */}
+        <View style={[styles.topBar, { backgroundColor: colors.bg }]}>
+          <IconButton icon={ChevronLeft} onPress={handleBack} bg={colors.surface} />
+          <View style={{ flex: 1 }} />
+          <Pressable
+            onPress={handleDone}
+            hitSlop={8}
+            style={({ pressed }) => [
+              styles.doneBtn,
+              { backgroundColor: colors.text },
+              !title.trim() && { opacity: 0.4 },
+              pressed && { opacity: 0.85 },
+            ]}
+            disabled={!title.trim()}
+          >
+            <Check size={16} color={colors.bg} strokeWidth={2.5} />
+            <Text variant="smallMedium" color={colors.bg}>Done</Text>
+          </Pressable>
+        </View>
+
         <ScrollView
           contentContainerStyle={{ paddingBottom: 80 + insets.bottom }}
           showsVerticalScrollIndicator={false}
         >
-          {/* HERO — image area is its own press target, controls float above */}
-          <View style={styles.hero}>
-            {imageUri ? (
-              <>
-                <Image source={{ uri: imageUri }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
-                <Pressable
-                  onPress={pickHero}
-                  style={styles.changeImageChip}
-                  hitSlop={6}
-                >
-                  <ImagePlus size={14} color={colors.text} strokeWidth={1.75} />
-                  <Text variant="caption" color={colors.text}>CHANGE</Text>
-                </Pressable>
-              </>
-            ) : (
+          {/* HERO image — just the visual, with its own X overlay */}
+          {imageUri ? (
+            <View style={styles.hero}>
+              <Image source={{ uri: imageUri }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+              <Pressable
+                onPress={() => setImageUri(null)}
+                style={styles.heroRemove}
+                hitSlop={6}
+              >
+                <X size={14} color={colors.text} strokeWidth={2} />
+              </Pressable>
               <Pressable
                 onPress={pickHero}
-                style={[styles.heroPlaceholder, { backgroundColor: palette.skySoft }]}
-              >
-                <ImagePlus size={32} color={colors.textMuted} strokeWidth={1.5} />
-                <Text variant="body" color={colors.textSoft} style={{ marginTop: spacing.sm }}>
-                  Tap to add a visual
-                </Text>
-              </Pressable>
-            )}
-            <View style={styles.heroTop}>
-              <IconButton icon={ChevronLeft} onPress={handleBack} bg="rgba(255,255,255,0.85)" />
-              <View style={{ flex: 1 }} />
-              {imageUri ? (
-                <Pressable onPress={() => setImageUri(null)} hitSlop={6} style={styles.heroRemove}>
-                  <X size={16} color={colors.text} strokeWidth={2} />
-                </Pressable>
-              ) : null}
-              <Pressable
-                onPress={handleDone}
+                style={styles.changeImageChip}
                 hitSlop={6}
-                style={[styles.doneBtn, { backgroundColor: colors.text }, !title.trim() && { opacity: 0.5 }]}
-                disabled={!title.trim()}
               >
-                <Check size={16} color={colors.bg} strokeWidth={2.5} />
-                <Text variant="smallMedium" color={colors.bg}>Done</Text>
+                <ImagePlus size={12} color={colors.text} strokeWidth={1.75} />
+                <Text variant="caption" color={colors.text}>CHANGE</Text>
               </Pressable>
             </View>
-          </View>
+          ) : (
+            <Pressable
+              onPress={pickHero}
+              style={[styles.heroPlaceholder, { backgroundColor: colors.skySoft }]}
+            >
+              <ImagePlus size={28} color={colors.textMuted} strokeWidth={1.5} />
+              <Text variant="body" color={colors.textSoft} style={{ marginTop: spacing.sm }}>
+                Tap to add a visual
+              </Text>
+            </Pressable>
+          )}
 
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <View style={styles.body}>
@@ -231,8 +241,27 @@ export default function FuturePlanScreen() {
 }
 
 const styles = StyleSheet.create({
-  hero: { height: 260, position: 'relative' },
-  heroPlaceholder: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.xxl,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+    zIndex: 10,
+  },
+  doneBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: spacing.lg, paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
+  },
+  hero: { height: 240, position: 'relative' },
+  heroPlaceholder: {
+    height: 200, alignItems: 'center', justifyContent: 'center',
+    marginHorizontal: spacing.xxl,
+    borderRadius: radii.xl,
+    marginBottom: spacing.lg,
+  },
   changeImageChip: {
     position: 'absolute',
     bottom: spacing.md, left: spacing.lg,
@@ -241,22 +270,14 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     backgroundColor: 'rgba(255,255,255,0.85)',
   },
-  heroTop: {
-    position: 'absolute',
-    top: spacing.md, left: spacing.lg, right: spacing.lg,
-    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-  },
   heroRemove: {
-    width: 36, height: 36, borderRadius: 18,
+    position: 'absolute',
+    top: spacing.md, right: spacing.lg,
+    width: 32, height: 32, borderRadius: 16,
     backgroundColor: 'rgba(255,255,255,0.85)',
     alignItems: 'center', justifyContent: 'center',
   },
-  doneBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    borderRadius: radii.pill,
-  },
-  body: { paddingHorizontal: spacing.xxl, paddingTop: spacing.xl, gap: spacing.lg },
+  body: { paddingHorizontal: spacing.xxl, paddingTop: spacing.lg, gap: spacing.lg },
   titleInput: { padding: 0, minHeight: 44 },
   section: { gap: spacing.sm },
   dateRow: {

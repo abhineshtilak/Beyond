@@ -74,6 +74,12 @@ async function runMigrations() {
   if (!(await columnExists('people', 'notification_id'))) {
     await db.runAsync(`ALTER TABLE people ADD COLUMN notification_id TEXT`);
   }
+  if (!(await columnExists('people', 'birthday'))) {
+    await db.runAsync(`ALTER TABLE people ADD COLUMN birthday TEXT`);
+  }
+  if (!(await columnExists('people', 'anniversary'))) {
+    await db.runAsync(`ALTER TABLE people ADD COLUMN anniversary TEXT`);
+  }
   // Learning: target, status, attachments, goal link, reminders
   if (!(await columnExists('learning', 'target_date'))) {
     await db.runAsync(`ALTER TABLE learning ADD COLUMN target_date TEXT`);

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, View, ViewStyle } from 'react-native';
-import { radii, spacing, useColors } from '@/theme';
+import { radii, spacing, useColors, useTheme, resolveTint } from '@/theme';
 import { Text } from './Text';
 
 type Props = {
@@ -15,8 +15,10 @@ type Props = {
 
 export function Chip({ label, selected, onPress, tint, style, leading, size = 'md' }: Props) {
   const colors = useColors();
-  const bg = selected ? (tint ?? colors.text) : colors.surface;
-  const fg = selected ? (tint ? colors.text : colors.bg) : colors.textSoft;
+  const isDark = useTheme().resolved === 'dark';
+  const themedTint = resolveTint(tint, isDark);
+  const bg = selected ? (themedTint ?? colors.text) : colors.surface;
+  const fg = selected ? (themedTint ? colors.text : colors.bg) : colors.textSoft;
   const border = selected ? 'transparent' : colors.hairline;
 
   const content = (

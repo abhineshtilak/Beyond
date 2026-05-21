@@ -47,8 +47,8 @@ export function InlineCalendar({ selected, onSelect, minDate }: Props) {
 
   const today = new Date();
   const years = useMemo(() => {
-    const start = today.getFullYear() - 30;
-    const end = today.getFullYear() + 30;
+    const start = today.getFullYear() - 50;
+    const end = today.getFullYear() + 80;
     return Array.from({ length: end - start + 1 }, (_, i) => start + i);
   }, []);
 

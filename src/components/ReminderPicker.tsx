@@ -1,21 +1,29 @@
 import React, { useState } from 'react';
 import { View, Pressable, Platform, StyleSheet } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Bell, X, Clock } from 'lucide-react-native';
+import { Bell, Clock } from 'lucide-react-native';
 import { Text } from './Text';
 import { Chip } from './Chip';
-import { colors, radii, spacing } from '@/theme';
+import { radii, spacing, useColors } from '@/theme';
 
 type Props = {
-  time: string | null;        // "HH:mm"
-  days?: number[] | null;     // 0=Sun..6=Sat — undefined means one-time reminder, no day picker
+  time: string | null;        // "HH:mm" (24h, canonical storage)
+  days?: number[] | null;     // 0=Sun..6=Sat
   onTimeChange: (time: string | null) => void;
   onDaysChange?: (days: number[]) => void;
   showDays?: boolean;
 };
 
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/** Convert "HH:mm" → "h:mm AM/PM" for display */
+function format12h(time: string): string {
+  const [h, m] = time.split(':').map(Number);
+  if (isNaN(h) || isNaN(m)) return time;
+  const period = h >= 12 ? 'PM' : 'AM';
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${hour12}:${m.toString().padStart(2, '0')} ${period}`;
+}
 
 export function ReminderPicker({
   time,
@@ -24,6 +32,7 @@ export function ReminderPicker({
   onDaysChange,
   showDays = true,
 }: Props) {
+  const colors = useColors();
   const [showPicker, setShowPicker] = useState(false);
 
   const enabled = !!time;
@@ -72,24 +81,48 @@ export function ReminderPicker({
 
   return (
     <View style={styles.wrap}>
-      <Pressable onPress={toggleEnabled} style={({ pressed }) => [styles.toggleRow, pressed && { opacity: 0.85 }]}>
+      <Pressable
+        onPress={toggleEnabled}
+        style={({ pressed }) => [
+          styles.toggleRow,
+          { backgroundColor: colors.surface, borderColor: colors.hairline },
+          pressed && { opacity: 0.85 },
+        ]}
+      >
         <View style={styles.toggleLeft}>
           <Bell size={16} color={enabled ? colors.text : colors.textMuted} strokeWidth={1.75} />
           <Text variant="body" color={enabled ? colors.text : colors.textMuted}>
             {enabled ? 'Reminder is on' : 'No reminder'}
           </Text>
         </View>
-        <View style={[styles.toggle, enabled && styles.toggleOn]}>
-          <View style={[styles.toggleKnob, enabled && styles.toggleKnobOn]} />
+        <View
+          style={[
+            styles.toggle,
+            { backgroundColor: enabled ? colors.text : colors.hairline },
+          ]}
+        >
+          <View
+            style={[
+              styles.toggleKnob,
+              { backgroundColor: colors.bg },
+              enabled && styles.toggleKnobOn,
+            ]}
+          />
         </View>
       </Pressable>
 
       {enabled ? (
         <>
-          <Pressable onPress={() => setShowPicker(true)} style={styles.timeRow}>
+          <Pressable
+            onPress={() => setShowPicker(true)}
+            style={[
+              styles.timeRow,
+              { backgroundColor: colors.surface, borderColor: colors.hairline },
+            ]}
+          >
             <Clock size={16} color={colors.textMuted} strokeWidth={1.75} />
             <Text variant="bodyMedium" style={{ flex: 1 }}>
-              {time}
+              {format12h(time!)}
             </Text>
             <Text variant="smallMedium" color={colors.textMuted}>CHANGE</Text>
           </Pressable>
@@ -114,7 +147,11 @@ export function ReminderPicker({
                     <Pressable
                       key={i}
                       onPress={() => toggleDay(i)}
-                      style={[styles.dayBtn, selected && styles.dayBtnOn]}
+                      style={[
+                        styles.dayBtn,
+                        { backgroundColor: colors.surface, borderColor: colors.hairline },
+                        selected && { backgroundColor: colors.text, borderColor: colors.text },
+                      ]}
                     >
                       <Text
                         variant="smallMedium"
@@ -133,7 +170,7 @@ export function ReminderPicker({
             <DateTimePicker
               value={pickerValue}
               mode="time"
-              is24Hour
+              is24Hour={false}
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
               onChange={handleTimeChange}
             />
@@ -144,6 +181,9 @@ export function ReminderPicker({
   );
 }
 
+/** Exposed so other screens can display stored "HH:mm" as 12h */
+export { format12h };
+
 const styles = StyleSheet.create({
   wrap: { gap: spacing.sm },
   toggleRow: {
@@ -152,8 +192,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
-    backgroundColor: colors.surface,
-    borderColor: colors.hairline,
     borderWidth: 1,
     borderRadius: 14,
   },
@@ -162,16 +200,13 @@ const styles = StyleSheet.create({
     width: 42,
     height: 24,
     borderRadius: 12,
-    backgroundColor: colors.hairline,
     justifyContent: 'center',
     paddingHorizontal: 2,
   },
-  toggleOn: { backgroundColor: colors.text },
   toggleKnob: {
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: colors.bg,
   },
   toggleKnobOn: { transform: [{ translateX: 18 }] },
   timeRow: {
@@ -180,8 +215,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
-    backgroundColor: colors.surface,
-    borderColor: colors.hairline,
     borderWidth: 1,
     borderRadius: 14,
   },
@@ -197,10 +230,7 @@ const styles = StyleSheet.create({
     maxWidth: 40,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: colors.hairline,
-    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dayBtnOn: { backgroundColor: colors.text, borderColor: colors.text },
 });

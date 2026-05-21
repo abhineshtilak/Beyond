@@ -14,6 +14,8 @@ export type Person = {
   lastContactDate: string | null;
   contactReminderDays: number | null;
   notificationId: string | null;
+  birthday: string | null;
+  anniversary: string | null;
   createdAt: number;
 };
 
@@ -29,6 +31,8 @@ export type PersonInput = {
   futurePlans?: string | null;
   lastContactDate?: string | null;
   contactReminderDays?: number | null;
+  birthday?: string | null;
+  anniversary?: string | null;
 };
 
 export const RELATION_META: Record<Relation, { label: string; tint: string }> = {

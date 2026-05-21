@@ -21,11 +21,12 @@ type Props = {
   children: React.ReactNode;
   snapPoints?: (string | number)[];
   footer?: React.ReactNode;
+  headerRight?: React.ReactNode;
   onDismiss?: () => void;
 };
 
 export const Sheet = forwardRef<SheetRef, Props>(function Sheet(
-  { title, subtitle, children, snapPoints, footer, onDismiss },
+  { title, subtitle, children, snapPoints, footer, headerRight, onDismiss },
   ref,
 ) {
   const insets = useSafeAreaInsets();
@@ -104,6 +105,7 @@ export const Sheet = forwardRef<SheetRef, Props>(function Sheet(
               </Text>
             ) : null}
           </View>
+          {headerRight}
           <Pressable
             onPress={handleClose}
             hitSlop={12}

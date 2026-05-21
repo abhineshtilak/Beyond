@@ -1,5 +1,32 @@
 import * as FileSystem from 'expo-file-system/legacy';
+import { format } from 'date-fns';
 import { getDB, initDB } from '@/lib/db';
+
+// Lazy-load native modules added after the current dev build was made.
+// If the user is running an older dev build, these will be undefined and we surface a clear message.
+let SharingMod: any = null;
+let DocumentPickerMod: any = null;
+function getSharing(): any | null {
+  if (SharingMod) return SharingMod;
+  try {
+    SharingMod = require('expo-sharing');
+    return SharingMod;
+  } catch {
+    return null;
+  }
+}
+function getDocumentPicker(): any | null {
+  if (DocumentPickerMod) return DocumentPickerMod;
+  try {
+    DocumentPickerMod = require('expo-document-picker');
+    return DocumentPickerMod;
+  } catch {
+    return null;
+  }
+}
+
+const REBUILD_MSG =
+  'Backup needs a rebuilt dev client. Run: eas build --profile development --platform android  — then install the new APK.';
 
 export const BACKUP_VERSION = 1;
 
@@ -270,4 +297,76 @@ function fileNameFromUri(uri: string, fallback: string) {
   const clean = uri.split('?')[0];
   const name = clean.split('/').pop();
   return name && name.includes('.') ? name : `${fallback}.bin`;
+}
+
+/* ---------- High-level helpers wired to the system share sheet + document picker ---------- */
+
+/** Build a backup, write it to a file, and open the system share sheet so the user can
+ *  send it to Google Drive / iCloud / wherever. */
+export async function exportToFile(): Promise<{ ok: boolean; summary?: BackupSummary; reason?: string }> {
+  const Sharing = getSharing();
+  if (!Sharing) {
+    return { ok: false, reason: REBUILD_MSG };
+  }
+  try {
+    const { payload, summary } = await createBackup();
+    const json = JSON.stringify(payload);
+    const filename = `beyond-backup-${format(new Date(), 'yyyy-MM-dd-HHmm')}.json`;
+    const fileUri = `${FileSystem.cacheDirectory}${filename}`;
+
+    await FileSystem.writeAsStringAsync(fileUri, json, { encoding: FileSystem.EncodingType.UTF8 });
+
+    const available = await Sharing.isAvailableAsync();
+    if (!available) {
+      return { ok: false, reason: 'Sharing is not available on this device.' };
+    }
+
+    await Sharing.shareAsync(fileUri, {
+      mimeType: 'application/json',
+      dialogTitle: 'Save your Beyond backup',
+      UTI: 'public.json',
+    });
+
+    return { ok: true, summary };
+  } catch (e: any) {
+    return { ok: false, reason: e?.message ?? 'Could not create backup.' };
+  }
+}
+
+/** Let the user pick a previously-exported backup and restore it. Replaces existing data. */
+export async function importFromFile(): Promise<{ ok: boolean; summary?: BackupSummary; reason?: string }> {
+  const DocumentPicker = getDocumentPicker();
+  if (!DocumentPicker) {
+    return { ok: false, reason: REBUILD_MSG };
+  }
+  try {
+    const pick = await DocumentPicker.getDocumentAsync({
+      type: ['application/json', '*/*'],
+      copyToCacheDirectory: true,
+    });
+    if (pick.canceled) return { ok: false, reason: 'cancelled' };
+
+    const file = pick.assets?.[0];
+    if (!file) return { ok: false, reason: 'No file picked.' };
+
+    const raw = await FileSystem.readAsStringAsync(file.uri, {
+      encoding: FileSystem.EncodingType.UTF8,
+    });
+
+    let payload: BackupFile;
+    try {
+      payload = JSON.parse(raw);
+    } catch {
+      return { ok: false, reason: "That doesn't look like a valid Beyond backup file." };
+    }
+
+    const summary = await restoreBackup(payload);
+    return { ok: true, summary };
+  } catch (e: any) {
+    return { ok: false, reason: e?.message ?? 'Restore failed. Your existing data is unchanged.' };
+  }
+}
+
+export function isBackupAvailable(): boolean {
+  return !!(getSharing() && getDocumentPicker());
 }

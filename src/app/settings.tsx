@@ -13,6 +13,8 @@ import {
   Lock,
   Info,
   Heart,
+  Download,
+  Upload,
 } from 'lucide-react-native';
 import { Text } from '@/components/Text';
 import { IconButton } from '@/components/IconButton';
@@ -22,6 +24,8 @@ import { radii, spacing, useColors, useTheme } from '@/theme';
 import { isExpoGo } from '@/lib/notifications';
 import { useProfileStore } from '@/features/profile/store';
 import { ageFromBirthday } from '@/features/profile/repo';
+import { exportToFile, importFromFile, isBackupAvailable } from '@/lib/backup';
+import { confirm } from '@/lib/confirm';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -31,7 +35,47 @@ export default function SettingsScreen() {
   const profile = useProfileStore((s) => s.profile);
   const refresh = useProfileStore((s) => s.refresh);
 
+  const [busy, setBusy] = useState<'export' | 'import' | null>(null);
+
   useFocusEffect(React.useCallback(() => { refresh(); }, [refresh]));
+
+  const handleExport = async () => {
+    if (busy) return;
+    setBusy('export');
+    try {
+      const res = await exportToFile();
+      if (!res.ok && res.reason && res.reason !== 'cancelled') {
+        Alert.alert('Could not export', res.reason);
+      }
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleImport = async () => {
+    if (busy) return;
+    const ok = await confirm({
+      title: 'Restore from backup?',
+      message: 'This will REPLACE your current data with the backup. Cannot be undone.',
+      confirmLabel: 'Restore',
+      destructive: true,
+    });
+    if (!ok) return;
+    setBusy('import');
+    try {
+      const res = await importFromFile();
+      if (res.ok && res.summary) {
+        Alert.alert(
+          'Restored',
+          `${res.summary.rowCount} entries and ${res.summary.fileCount} files restored. Reopen the app for everything to refresh.`,
+        );
+      } else if (res.reason && res.reason !== 'cancelled') {
+        Alert.alert('Could not restore', res.reason);
+      }
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const age = ageFromBirthday(profile.birthday);
   const initials = profile.name?.trim()
@@ -128,6 +172,59 @@ export default function SettingsScreen() {
                 </Text>
               </View>
             </View>
+          </Section>
+
+          {/* Backup */}
+          <Section title="Backup">
+            {!isBackupAvailable() ? (
+              <View style={[styles.row, { backgroundColor: colors.surfaceAlt, borderColor: colors.hairline }]}>
+                <Download size={18} color={colors.textMuted} strokeWidth={1.75} />
+                <View style={{ flex: 1 }}>
+                  <Text variant="bodyMedium">Backup needs a rebuilt dev client</Text>
+                  <Text variant="small" color={colors.textMuted} style={{ marginTop: 2 }}>
+                    Run `eas build --profile development --platform android`, install the new APK, then come back here. Your data is safe meanwhile.
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+            <Pressable
+              onPress={handleExport}
+              disabled={!!busy}
+              style={({ pressed }) => [
+                styles.row,
+                { backgroundColor: colors.surface, borderColor: colors.hairline },
+                (pressed || busy === 'export') && { opacity: 0.7 },
+              ]}
+            >
+              <Download size={18} color={colors.textSoft} strokeWidth={1.75} />
+              <View style={{ flex: 1 }}>
+                <Text variant="bodyMedium">
+                  {busy === 'export' ? 'Preparing backup...' : 'Export backup'}
+                </Text>
+                <Text variant="small" color={colors.textMuted} style={{ marginTop: 2 }}>
+                  Save your entries, voice notes, and photos as a file. Share it to Google Drive, iCloud, or anywhere.
+                </Text>
+              </View>
+            </Pressable>
+            <Pressable
+              onPress={handleImport}
+              disabled={!!busy}
+              style={({ pressed }) => [
+                styles.row,
+                { backgroundColor: colors.surface, borderColor: colors.hairline },
+                (pressed || busy === 'import') && { opacity: 0.7 },
+              ]}
+            >
+              <Upload size={18} color={colors.textSoft} strokeWidth={1.75} />
+              <View style={{ flex: 1 }}>
+                <Text variant="bodyMedium">
+                  {busy === 'import' ? 'Restoring...' : 'Restore from backup'}
+                </Text>
+                <Text variant="small" color={colors.textMuted} style={{ marginTop: 2 }}>
+                  Pick a Beyond backup file from your device. Replaces current data.
+                </Text>
+              </View>
+            </Pressable>
           </Section>
 
           {/* About / Privacy */}
