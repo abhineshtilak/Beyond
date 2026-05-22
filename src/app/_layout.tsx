@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, ActivityIndicator, AppState, type AppStateStatus } from 'react-native';
 import { Stack, SplashScreen } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -19,6 +19,8 @@ import { initDB } from '@/lib/db';
 import { configureHandler } from '@/lib/notifications';
 import { useAppStore } from '@/store';
 import { colors, ThemeProvider, useColors } from '@/theme';
+import { useAuthStore } from '@/store/auth';
+import { LockScreen } from '@/components/LockScreen';
 
 configureHandler();
 
@@ -29,15 +31,24 @@ export default function RootLayout() {
   const [frauncesLoaded] = useFraunces({ Fraunces_500Medium, Fraunces_600SemiBold });
   const dbReady = useAppStore((s) => s.dbReady);
   const setDbReady = useAppStore((s) => s.setDbReady);
+  const initAuth = useAuthStore((s) => s.initAuth);
+  const authReady = useAuthStore((s) => s.authReady);
 
   useEffect(() => {
-    initDB().then(() => setDbReady(true)).catch((e) => {
-      console.warn('DB init failed', e);
-      setDbReady(true);
-    });
+    initDB()
+      .then(() => setDbReady(true))
+      .catch((e) => {
+        console.warn('DB init failed', e);
+        setDbReady(true);
+      });
   }, [setDbReady]);
 
-  const ready = interLoaded && frauncesLoaded && dbReady;
+  // Init auth after DB is ready (SecureStore is independent, but keeps ordering clean)
+  useEffect(() => {
+    if (dbReady) initAuth();
+  }, [dbReady, initAuth]);
+
+  const ready = interLoaded && frauncesLoaded && dbReady && authReady;
 
   useEffect(() => {
     if (ready) SplashScreen.hideAsync().catch(() => {});
@@ -58,8 +69,33 @@ export default function RootLayout() {
   );
 }
 
+// How long the app must be in background before re-locking (ms)
+const LOCK_AFTER_BG_MS = 30_000;
+
 function RootShell() {
   const themed = useColors();
+  const locked = useAuthStore((s) => s.locked);
+  const lock = useAuthStore((s) => s.lock);
+  const unlock = useAuthStore((s) => s.unlock);
+  const mode = useAuthStore((s) => s.mode);
+
+  // Re-lock when app returns from background after LOCK_AFTER_BG_MS
+  const bgSince = useRef<number | null>(null);
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state: AppStateStatus) => {
+      if (state === 'background' || state === 'inactive') {
+        bgSince.current = Date.now();
+      } else if (state === 'active') {
+        const since = bgSince.current;
+        if (since !== null && Date.now() - since >= LOCK_AFTER_BG_MS) {
+          lock();
+        }
+        bgSince.current = null;
+      }
+    });
+    return () => sub.remove();
+  }, [lock]);
+
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: themed.bg }}>
       <SafeAreaProvider>
@@ -94,7 +130,12 @@ function RootShell() {
             <Stack.Screen name="future-plan" options={{ animation: 'slide_from_bottom' }} />
             <Stack.Screen name="about" />
             <Stack.Screen name="philosophy" />
+            <Stack.Screen name="auth-setup" />
+            <Stack.Screen name="insights" />
           </Stack>
+
+          {/* Lock screen overlay — rendered above everything when locked */}
+          {locked ? <LockScreen mode={mode} onUnlock={unlock} /> : null}
         </BottomSheetModalProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

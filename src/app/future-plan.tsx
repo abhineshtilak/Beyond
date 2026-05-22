@@ -5,7 +5,6 @@ import {
   Pressable,
   Image,
   StyleSheet,
-  Platform,
   ScrollView,
   Keyboard,
   Alert,
@@ -19,7 +18,7 @@ import { format, parseISO } from 'date-fns';
 import { Text } from '@/components/Text';
 import { IconButton } from '@/components/IconButton';
 import { InlineCalendar } from '@/components/InlineCalendar';
-import { radii, spacing, typeScale, useColors } from '@/theme';
+import { fonts, radii, spacing, useColors } from '@/theme';
 import * as repo from '@/features/future/repo';
 import { useFutureStore } from '@/features/future/store';
 
@@ -178,7 +177,7 @@ export default function FuturePlanScreen() {
             </Pressable>
           )}
 
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <KeyboardAvoidingView behavior="padding">
             <View style={styles.body}>
               <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
                 {idRef.current ? 'Plan' : 'Someday'} · {saving ? 'Saving' : dirty ? 'Unsaved' : 'Saved'}
@@ -189,7 +188,7 @@ export default function FuturePlanScreen() {
                 onChangeText={setTitle}
                 placeholder="What's the plan?"
                 placeholderTextColor={colors.textFaint}
-                style={[typeScale.display, styles.titleInput, { color: colors.text }]}
+                style={[{ fontFamily: fonts.serifBold, fontSize: 32, letterSpacing: -0.5 }, styles.titleInput, { color: colors.text }]}
                 multiline
               />
 
@@ -229,7 +228,7 @@ export default function FuturePlanScreen() {
                   placeholder="Anything you want to remember about this."
                   placeholderTextColor={colors.textFaint}
                   multiline
-                  style={[typeScale.body, styles.textArea, { color: colors.text, backgroundColor: colors.surface, borderColor: colors.hairline }]}
+                  style={[{ fontFamily: fonts.sans, fontSize: 15 }, styles.textArea, { color: colors.text, backgroundColor: colors.surface, borderColor: colors.hairline }]}
                 />
               </View>
             </View>

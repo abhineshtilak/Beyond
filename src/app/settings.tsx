@@ -15,6 +15,7 @@ import {
   Heart,
   Download,
   Upload,
+  ShieldCheck,
 } from 'lucide-react-native';
 import { Text } from '@/components/Text';
 import { IconButton } from '@/components/IconButton';
@@ -26,6 +27,8 @@ import { useProfileStore } from '@/features/profile/store';
 import { ageFromBirthday } from '@/features/profile/repo';
 import { exportToFile, importFromFile, isBackupAvailable } from '@/lib/backup';
 import { confirm } from '@/lib/confirm';
+import { useAuthStore } from '@/store/auth';
+import { isAuthAvailable } from '@/lib/auth';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -36,6 +39,14 @@ export default function SettingsScreen() {
   const refresh = useProfileStore((s) => s.refresh);
 
   const [busy, setBusy] = useState<'export' | 'import' | null>(null);
+  const authMode = useAuthStore((s) => s.mode);
+
+  const AUTH_MODE_LABELS: Record<string, string> = {
+    none: 'Off',
+    pin: 'PIN',
+    biometric: 'Biometric',
+    both: 'PIN + Biometric',
+  };
 
   useFocusEffect(React.useCallback(() => { refresh(); }, [refresh]));
 
@@ -97,7 +108,7 @@ export default function SettingsScreen() {
         </View>
 
         <ScrollView
-          contentContainerStyle={{ paddingHorizontal: spacing.xxl, paddingBottom: 80 + insets.bottom, gap: spacing.lg }}
+          contentContainerStyle={{ paddingHorizontal: spacing.xxl, paddingBottom: 32 + insets.bottom, gap: spacing.lg }}
           showsVerticalScrollIndicator={false}
         >
           {/* Profile card */}
@@ -155,6 +166,39 @@ export default function SettingsScreen() {
                 Dark theme is soft and warm — easy on tired eyes.
               </Text>
             </View>
+          </Section>
+
+          {/* Security */}
+          <Section title="Security">
+            {!isAuthAvailable() ? (
+              <View style={[styles.row, { backgroundColor: colors.surfaceAlt, borderColor: colors.hairline }]}>
+                <ShieldCheck size={18} color={colors.textMuted} strokeWidth={1.75} />
+                <View style={{ flex: 1 }}>
+                  <Text variant="bodyMedium">App lock needs a rebuilt dev client</Text>
+                  <Text variant="small" color={colors.textMuted} style={{ marginTop: 2 }}>
+                    Run `eas build --profile development --platform android`, install the new APK, then come back to configure PIN or biometrics.
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <Pressable
+                onPress={() => router.push('/auth-setup')}
+                style={({ pressed }) => [
+                  styles.row,
+                  { backgroundColor: colors.surface, borderColor: colors.hairline },
+                  pressed && { opacity: 0.85 },
+                ]}
+              >
+                <ShieldCheck size={18} color={colors.textSoft} strokeWidth={1.75} />
+                <View style={{ flex: 1 }}>
+                  <Text variant="bodyMedium">App lock</Text>
+                  <Text variant="small" color={colors.textMuted} style={{ marginTop: 2 }}>
+                    {AUTH_MODE_LABELS[authMode] ?? 'Off'} — tap to configure PIN or biometrics
+                  </Text>
+                </View>
+                <ChevronRight size={16} color={colors.textMuted} strokeWidth={1.75} />
+              </Pressable>
+            )}
           </Section>
 
           {/* Notifications */}
@@ -249,7 +293,7 @@ export default function SettingsScreen() {
             />
           </Section>
 
-          <View style={{ alignItems: 'center', paddingVertical: spacing.xxl, gap: 4 }}>
+          <View style={{ alignItems: 'center', paddingVertical: spacing.lg, gap: 4 }}>
             <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
               Developed by
             </Text>

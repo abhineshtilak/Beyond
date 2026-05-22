@@ -4,7 +4,6 @@ import {
   ScrollView,
   StyleSheet,
   KeyboardAvoidingView,
-  Platform,
   Pressable,
 } from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
@@ -115,7 +114,7 @@ export default function DiaryScreen() {
 
         <KeyboardAvoidingView
           style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior="padding"
           keyboardVerticalOffset={0}
         >
           <ScrollView

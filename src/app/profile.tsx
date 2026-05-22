@@ -9,7 +9,6 @@ import {
   Keyboard,
   Alert,
   KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,7 +18,7 @@ import { format, parseISO } from 'date-fns';
 import { Text } from '@/components/Text';
 import { IconButton } from '@/components/IconButton';
 import { InlineCalendar } from '@/components/InlineCalendar';
-import { radii, spacing, typeScale, useColors } from '@/theme';
+import { fonts, radii, spacing, useColors } from '@/theme';
 import { useProfileStore } from '@/features/profile/store';
 import { ageFromBirthday } from '@/features/profile/repo';
 
@@ -129,7 +128,7 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
 
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
           <ScrollView
             contentContainerStyle={[styles.body, { paddingBottom: 80 + insets.bottom }]}
             showsVerticalScrollIndicator={false}
@@ -160,7 +159,7 @@ export default function ProfileScreen() {
                 onChangeText={setName}
                 placeholder="What should we call you?"
                 placeholderTextColor={colors.textFaint}
-                style={[typeScale.h2, styles.nameInput, { color: colors.text, borderBottomColor: colors.hairline }]}
+                style={[styles.nameInput, { fontFamily: fonts.serif, fontSize: 26, color: colors.text, borderBottomColor: colors.hairline }]}
               />
             </View>
 
@@ -173,7 +172,9 @@ export default function ProfileScreen() {
                 onChangeText={setPronouns}
                 placeholder="e.g. she/her, he/him, they/them"
                 placeholderTextColor={colors.textFaint}
-                style={[typeScale.body, styles.inlineInput, {
+                style={[styles.inlineInput, {
+                  fontFamily: fonts.sans,
+                  fontSize: 16,
                   color: colors.text,
                   backgroundColor: colors.surface,
                   borderColor: colors.hairline,

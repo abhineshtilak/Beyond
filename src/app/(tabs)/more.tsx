@@ -14,12 +14,14 @@ import {
   Clock,
   Settings,
   NotebookPen,
+  BarChart2,
 } from 'lucide-react-native';
 import { colors, spacing, palette } from '@/theme';
 
 type Item = { key: string; label: string; desc: string; icon: any; tint: string; route?: string };
 
 const ITEMS: Item[] = [
+  { key: 'insights', label: 'Insights', desc: 'Trends, streaks, and your story in data', icon: BarChart2, tint: palette.skySoft, route: '/insights' },
   { key: 'reflections', label: 'Past reflections', desc: 'Read your daily journal', icon: NotebookPen, tint: palette.creamSoft, route: '/reflections' },
   { key: 'realizations', label: 'Realizations', desc: 'Lessons, insights, quotes', icon: BookOpen, tint: palette.sageSoft, route: '/realizations' },
   { key: 'dreams', label: 'Ambitions & Dreams', desc: 'Your bigger vision', icon: Sparkle, tint: palette.lavenderSoft, route: '/dreams' },

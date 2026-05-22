@@ -4,7 +4,6 @@ import {
   TextInput,
   Pressable,
   StyleSheet,
-  Platform,
   KeyboardAvoidingView,
   ScrollView,
   Keyboard,
@@ -30,7 +29,7 @@ import { Chip } from '@/components/Chip';
 import { VoiceRecorder } from '@/components/VoiceRecorder';
 import { PlaybackWaveform } from '@/components/Waveform';
 import type { Attachment } from '@/components/MediaAttachments';
-import { fonts, radii, spacing, typeScale, useColors } from '@/theme';
+import { fonts, radii, spacing, useColors } from '@/theme';
 import * as repo from '@/features/realizations/repo';
 import { useRealizationsStore } from '@/features/realizations/store';
 import {
@@ -190,7 +189,7 @@ export default function RealizationScreen() {
 
         <KeyboardAvoidingView
           style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior="padding"
         >
           <ScrollView
             contentContainerStyle={[styles.body, { paddingBottom: 100 + insets.bottom }]}
@@ -215,7 +214,7 @@ export default function RealizationScreen() {
               onChangeText={setTitle}
               placeholder="Title"
               placeholderTextColor={colors.textFaint}
-              style={[typeScale.h1, styles.title, { color: colors.text }]}
+              style={[{ fontFamily: fonts.serifBold, fontSize: 26, letterSpacing: -0.3 }, styles.title, { color: colors.text }]}
               multiline
             />
 

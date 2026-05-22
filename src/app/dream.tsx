@@ -5,7 +5,6 @@ import {
   Pressable,
   Image,
   StyleSheet,
-  Platform,
   KeyboardAvoidingView,
   ScrollView,
   Keyboard,
@@ -20,7 +19,7 @@ import { IconButton } from '@/components/IconButton';
 import { Text } from '@/components/Text';
 import { MediaAttachments } from '@/components/MediaAttachments';
 import type { Attachment } from '@/components/MediaAttachments';
-import { radii, spacing, typeScale, useColors } from '@/theme';
+import { fonts, radii, spacing, useColors } from '@/theme';
 import * as repo from '@/features/dreams/repo';
 import { useDreamsStore } from '@/features/dreams/store';
 
@@ -192,7 +191,7 @@ export default function DreamScreen() {
             </Pressable>
           )}
 
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <KeyboardAvoidingView behavior="padding">
             <View style={styles.body}>
               <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
                 {created ? format(created, 'MMMM d, yyyy') : 'New dream'} · {saving ? 'Saving' : isDirty() ? 'Unsaved' : 'Saved'}
@@ -203,7 +202,7 @@ export default function DreamScreen() {
                 onChangeText={setTitle}
                 placeholder="The dream"
                 placeholderTextColor={colors.textFaint}
-                style={[typeScale.display, styles.titleInput, { color: colors.text }]}
+                style={[{ fontFamily: fonts.serifBold, fontSize: 32, letterSpacing: -0.5 }, styles.titleInput, { color: colors.text }]}
                 multiline
               />
 
@@ -217,7 +216,7 @@ export default function DreamScreen() {
                   placeholder="What does this look like? Picture the scene in detail."
                   placeholderTextColor={colors.textFaint}
                   multiline
-                  style={[typeScale.body, styles.textArea, { color: colors.text, backgroundColor: colors.surface, borderColor: colors.hairline }]}
+                  style={[{ fontFamily: fonts.sans, fontSize: 15 }, styles.textArea, { color: colors.text, backgroundColor: colors.surface, borderColor: colors.hairline }]}
                 />
               </View>
 
@@ -231,7 +230,7 @@ export default function DreamScreen() {
                   placeholder="Why does this dream matter? What does it represent?"
                   placeholderTextColor={colors.textFaint}
                   multiline
-                  style={[typeScale.body, styles.textArea, { color: colors.text, backgroundColor: colors.surface, borderColor: colors.hairline }]}
+                  style={[{ fontFamily: fonts.sans, fontSize: 15 }, styles.textArea, { color: colors.text, backgroundColor: colors.surface, borderColor: colors.hairline }]}
                 />
               </View>
 

@@ -1,28 +1,40 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { format } from 'date-fns';
+import { requireOptionalNativeModule } from 'expo-modules-core';
 import { getDB, initDB } from '@/lib/db';
 
-// Lazy-load native modules added after the current dev build was made.
-// If the user is running an older dev build, these will be undefined and we surface a clear message.
-let SharingMod: any = null;
-let DocumentPickerMod: any = null;
+// Guard native-module-dependent packages using requireOptionalNativeModule.
+// In RN 0.83 / New Architecture, expo-sharing and expo-document-picker eagerly call
+// requireNativeModule() at the module top-level, which throws *before* a try/catch
+// around require() can intercept it. requireOptionalNativeModule is Expo's safe API
+// that returns null instead of throwing when the native side isn't linked.
+
+let SharingMod: any = undefined;     // undefined = not yet checked
+let DocumentPickerMod: any = undefined;
+
 function getSharing(): any | null {
-  if (SharingMod) return SharingMod;
+  if (SharingMod !== undefined) return SharingMod;
+  // First check if the native module exists without throwing
+  const native = requireOptionalNativeModule('ExpoSharing');
+  if (!native) { SharingMod = null; return null; }
   try {
     SharingMod = require('expo-sharing');
-    return SharingMod;
   } catch {
-    return null;
+    SharingMod = null;
   }
+  return SharingMod;
 }
+
 function getDocumentPicker(): any | null {
-  if (DocumentPickerMod) return DocumentPickerMod;
+  if (DocumentPickerMod !== undefined) return DocumentPickerMod;
+  const native = requireOptionalNativeModule('ExpoDocumentPicker');
+  if (!native) { DocumentPickerMod = null; return null; }
   try {
     DocumentPickerMod = require('expo-document-picker');
-    return DocumentPickerMod;
   } catch {
-    return null;
+    DocumentPickerMod = null;
   }
+  return DocumentPickerMod;
 }
 
 const REBUILD_MSG =

@@ -36,6 +36,13 @@
             "imageWidth": 76
           }
         }
+      ],
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow Beyond to use Face ID to unlock the app."
+        }
       ]
     ],
     "experiments": {

@@ -9,7 +9,6 @@ import {
   Keyboard,
   Alert,
   KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,7 +28,7 @@ import { Text } from '@/components/Text';
 import { IconButton } from '@/components/IconButton';
 import { Chip } from '@/components/Chip';
 import { InlineCalendar } from '@/components/InlineCalendar';
-import { radii, spacing, typeScale, useColors } from '@/theme';
+import { fonts, radii, spacing, useColors } from '@/theme';
 import { confirm } from '@/lib/confirm';
 import { ymd } from '@/lib/date';
 import * as repo from '@/features/people/repo';
@@ -220,7 +219,7 @@ export default function PersonScreen() {
           </Pressable>
         </View>
 
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
           <ScrollView
             contentContainerStyle={[styles.body, { paddingBottom: 80 + insets.bottom }]}
             showsVerticalScrollIndicator={false}
@@ -243,7 +242,7 @@ export default function PersonScreen() {
                 onChangeText={setName}
                 placeholder="Their name"
                 placeholderTextColor={colors.textFaint}
-                style={[typeScale.h1, styles.nameInput, { color: colors.text }]}
+                style={[{ fontFamily: fonts.serifBold, fontSize: 26, letterSpacing: -0.3 }, styles.nameInput, { color: colors.text }]}
               />
             </View>
 
@@ -385,7 +384,7 @@ function LongInput({ label, value, onChangeText, placeholder }: { label: string;
         placeholderTextColor={c.textFaint}
         multiline
         style={[
-          typeScale.body,
+          { fontFamily: fonts.sans, fontSize: 15 },
           styles.textArea,
           { color: c.text, backgroundColor: c.surface, borderColor: c.hairline },
         ]}

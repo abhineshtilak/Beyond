@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { View, Pressable, StyleSheet, Image, FlatList } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
@@ -45,6 +45,8 @@ import { MoodPicker } from '@/features/diary/MoodPicker';
 import { MOOD_META } from '@/features/diary/types';
 import { htmlToPlainText } from '@/features/realizations/types';
 import type { JournalEntry } from '@/features/journal/types';
+import { OnThisDayCard } from '@/components/OnThisDayCard';
+import { getOnThisDay, type OnThisDayEntry } from '@/lib/onThisDay';
 
 export default function HomeScreen() {
   const colors = useColors();
@@ -73,6 +75,7 @@ export default function HomeScreen() {
 
   const [goalsExpanded, setGoalsExpanded] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [onThisDay, setOnThisDay] = useState<OnThisDayEntry[]>([]);
   const selectionMode = selected.size > 0;
 
   useFocusEffect(
@@ -83,6 +86,7 @@ export default function HomeScreen() {
       refreshProfile();
       refreshJournal();
       loadDiary();
+      getOnThisDay().then((r) => setOnThisDay(r.entries)).catch(() => {});
     }, [refreshTasks, refreshHabits, refreshGoals, refreshProfile, refreshJournal, loadDiary]),
   );
 
@@ -307,6 +311,13 @@ export default function HomeScreen() {
           )}
         </Card>
       </View>
+
+      {/* On This Day */}
+      {onThisDay.length > 0 ? (
+        <View style={styles.padded}>
+          <OnThisDayCard entries={onThisDay} />
+        </View>
+      ) : null}
 
       {/* Daily reflection (form-based, prompts + mood) */}
       <View style={styles.padded}>

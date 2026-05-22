@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { Plus, X, Flag } from 'lucide-react-native';
 import { Text } from '@/components/Text';
 import { Checkbox } from '@/components/Checkbox';
-import { colors, radii, spacing, typeScale } from '@/theme';
+import { colors, fonts, radii, spacing } from '@/theme';
 import * as repo from './repo';
 import type { Milestone } from './types';
 
@@ -106,7 +106,7 @@ export function MilestonesSection({ goalId, onProgressChange }: Props) {
             returnKeyType="done"
             onSubmitEditing={handleAdd}
             onBlur={handleAdd}
-            style={[typeScale.body, { color: colors.text, flex: 1, paddingVertical: 0 }]}
+            style={[{ fontFamily: fonts.sans, fontSize: 15, color: colors.text, flex: 1, paddingVertical: 0 }]}
           />
         </View>
       ) : null}

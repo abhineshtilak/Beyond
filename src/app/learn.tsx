@@ -7,7 +7,6 @@ import {
   ScrollView,
   Keyboard,
   KeyboardAvoidingView,
-  Platform,
   Linking,
 } from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
@@ -38,7 +37,7 @@ import { IconButton } from '@/components/IconButton';
 import { Chip } from '@/components/Chip';
 import { InlineCalendar } from '@/components/InlineCalendar';
 import { GoalPicker } from '@/features/goals/GoalPicker';
-import { colors, radii, spacing, typeScale } from '@/theme';
+import { colors, fonts, radii, spacing } from '@/theme';
 import { confirm } from '@/lib/confirm';
 import { uid } from '@/lib/db';
 import * as repo from '@/features/learning/repo';
@@ -210,7 +209,7 @@ export default function LearnScreen() {
           </Pressable>
         </View>
 
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
           <ScrollView
             contentContainerStyle={[styles.body, { paddingBottom: 80 + insets.bottom }]}
             showsVerticalScrollIndicator={false}
@@ -221,7 +220,7 @@ export default function LearnScreen() {
               onChangeText={setTitle}
               placeholder="What you're learning"
               placeholderTextColor={colors.textFaint}
-              style={[typeScale.display, styles.titleInput]}
+              style={[{ fontFamily: fonts.serifBold, fontSize: 32, letterSpacing: -0.5 }, styles.titleInput]}
               multiline
             />
             <TextInput
@@ -229,7 +228,7 @@ export default function LearnScreen() {
               onChangeText={setCategory}
               placeholder="Category (e.g. Programming, Music)"
               placeholderTextColor={colors.textFaint}
-              style={[typeScale.body, styles.inlineInput]}
+              style={[{ fontFamily: fonts.sans, fontSize: 15 }, styles.inlineInput]}
             />
 
             {/* Status */}
@@ -362,7 +361,7 @@ export default function LearnScreen() {
                     onChangeText={setResTitle}
                     placeholder="Title (e.g. Atomic Habits)"
                     placeholderTextColor={colors.textFaint}
-                    style={[typeScale.body, styles.resInput]}
+                    style={[{ fontFamily: fonts.sans, fontSize: 15 }, styles.resInput]}
                   />
                   <TextInput
                     value={resUrl}
@@ -371,7 +370,7 @@ export default function LearnScreen() {
                     placeholderTextColor={colors.textFaint}
                     autoCapitalize="none"
                     keyboardType="url"
-                    style={[typeScale.body, styles.resInput]}
+                    style={[{ fontFamily: fonts.sans, fontSize: 15 }, styles.resInput]}
                   />
                   <View style={{ flexDirection: 'row', gap: spacing.sm }}>
                     <Pressable
@@ -410,7 +409,7 @@ export default function LearnScreen() {
                 placeholder="Key insights, takeaways, references."
                 placeholderTextColor={colors.textFaint}
                 multiline
-                style={[typeScale.body, styles.textArea]}
+                style={[{ fontFamily: fonts.sans, fontSize: 15 }, styles.textArea]}
               />
             </Section>
 

@@ -4,7 +4,6 @@ import {
   Pressable,
   Image,
   StyleSheet,
-  Platform,
   KeyboardAvoidingView,
   ScrollView,
   Keyboard,
@@ -177,7 +176,7 @@ export default function JournalScreen() {
 
         <KeyboardAvoidingView
           style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior="padding"
         >
           <ScrollView
             contentContainerStyle={[styles.body, { paddingBottom: 100 + insets.bottom }]}

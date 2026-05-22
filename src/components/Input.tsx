@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { TextInput, TextInputProps, View, StyleSheet, ViewStyle } from 'react-native';
-import { radii, spacing, typeScale, useColors } from '@/theme';
+import { TextInput, TextInputProps, View, ViewStyle } from 'react-native';
+import { radii, spacing, fonts, useColors } from '@/theme';
 import { Text } from './Text';
 
 type Props = TextInputProps & {
@@ -26,16 +26,18 @@ export function Input({ label, containerStyle, multiline, style, ...rest }: Prop
         onBlur={(e) => { setFocused(false); rest.onBlur?.(e); }}
         placeholderTextColor={colors.textFaint}
         style={[
-          typeScale.body,
           {
+            fontFamily: fonts.sans,
+            fontSize: 16,
             color: colors.text,
             borderColor: focused ? colors.text : colors.hairline,
             backgroundColor: colors.surface,
             borderWidth: 1,
             borderRadius: radii.lg,
             paddingHorizontal: spacing.lg,
-            paddingVertical: spacing.md,
-            minHeight: multiline ? 96 : 48,
+            paddingTop: spacing.md,
+            paddingBottom: spacing.md,
+            minHeight: multiline ? 120 : 52,
             textAlignVertical: multiline ? 'top' : 'center',
           },
           style,

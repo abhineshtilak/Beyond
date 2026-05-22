@@ -20,7 +20,7 @@ import { IconButton } from '@/components/IconButton';
 import { EmptyState } from '@/components/EmptyState';
 import { Fab } from '@/components/Fab';
 import { SelectionDeleteBtn } from '@/components/SelectionDeleteBtn';
-import { colors, radii, spacing, typeScale } from '@/theme';
+import { colors, fonts, radii, spacing } from '@/theme';
 import { confirm } from '@/lib/confirm';
 import { useRealizationsStore } from '@/features/realizations/store';
 import {
@@ -129,7 +129,7 @@ export default function RealizationsScreen() {
                       onChangeText={setQuery}
                       placeholder="Search your thoughts..."
                       placeholderTextColor={colors.textFaint}
-                      style={[typeScale.body, { flex: 1, color: colors.text, paddingVertical: 0 }]}
+                      style={[{ fontFamily: fonts.sans, fontSize: 15, flex: 1, color: colors.text, paddingVertical: 0 }]}
                     />
                   </View>
 

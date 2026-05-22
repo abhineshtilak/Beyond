@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
-import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react-native';
 import { format, parseISO, addMonths, subMonths, setYear, setMonth } from 'date-fns';
 import { Text } from './Text';
 import { useColors, fonts, radii, spacing } from '@/theme';
@@ -20,22 +20,33 @@ type Props = {
   minDate?: string;
 };
 
-const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MONTHS_SHORT = [
+  'Jan','Feb','Mar','Apr','May','Jun',
+  'Jul','Aug','Sep','Oct','Nov','Dec',
+];
+
+// Each year cell renders at this height. Used to compute scroll offsets.
+const YEAR_ROW_H = 36;            // paddingVertical(6×2) + text(~20) + breathing room
+const YEAR_GAP = spacing.xs;       // 4
+const YEAR_ROW_PITCH = YEAR_ROW_H + YEAR_GAP; // distance between row tops
+const YEAR_COLS = 3;
+const PICKER_MAX_HEIGHT = 168;     // ~ 4 rows visible
 
 export function InlineCalendar({ selected, onSelect, minDate }: Props) {
   const colors = useColors();
 
-  // The displayed month — initialize from `selected` or today
   const [view, setView] = useState<Date>(() => {
     if (selected) {
       try { return parseISO(selected); } catch { return new Date(); }
     }
     return new Date();
   });
-  const [pickerOpen, setPickerOpen] = useState<'none' | 'month' | 'year'>('none');
 
-  // Sync view if selected jumps elsewhere
-  React.useEffect(() => {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const yearScrollRef = useRef<ScrollView>(null);
+
+  // Sync view if selected jumps to a different month
+  useEffect(() => {
     if (!selected) return;
     try {
       const d = parseISO(selected);
@@ -45,12 +56,27 @@ export function InlineCalendar({ selected, onSelect, minDate }: Props) {
     } catch {}
   }, [selected]);
 
-  const today = new Date();
+  const today = useMemo(() => new Date(), []);
   const years = useMemo(() => {
     const start = today.getFullYear() - 50;
     const end = today.getFullYear() + 80;
     return Array.from({ length: end - start + 1 }, (_, i) => start + i);
-  }, []);
+  }, [today]);
+
+  // When picker opens, scroll the year list so the current year sits near the top
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const idx = years.findIndex((y) => y === view.getFullYear());
+    if (idx < 0) return;
+    const row = Math.floor(idx / YEAR_COLS);
+    // Put current year row as the 2nd visible row (some history above, future below)
+    const offset = Math.max(0, (row - 1) * YEAR_ROW_PITCH);
+    // Delay so the ScrollView has laid out its content
+    const t = setTimeout(() => {
+      yearScrollRef.current?.scrollTo({ y: offset, animated: false });
+    }, 80);
+    return () => clearTimeout(t);
+  }, [pickerOpen]); // only when toggled open
 
   const marked = useMemo(
     () =>
@@ -71,6 +97,16 @@ export function InlineCalendar({ selected, onSelect, minDate }: Props) {
   const handlePrevMonth = () => setView((v) => subMonths(v, 1));
   const handleNextMonth = () => setView((v) => addMonths(v, 1));
 
+  const handleSelectYear = useCallback((y: number) => {
+    setView((v) => setYear(v, y));
+    // keep picker open so user can also tap a month
+  }, []);
+
+  const handleSelectMonth = useCallback((i: number) => {
+    setView((v) => setMonth(v, i));
+    setPickerOpen(false);
+  }, []);
+
   return (
     <View
       style={{
@@ -79,102 +115,109 @@ export function InlineCalendar({ selected, onSelect, minDate }: Props) {
         overflow: 'hidden',
       }}
     >
-      {/* Custom header with month/year tap-to-pick */}
+      {/* ── Header ───────────────────────────────────────────── */}
       <View style={[styles.header, { borderBottomColor: colors.hairline }]}>
-        <Pressable onPress={handlePrevMonth} hitSlop={8} style={styles.navBtn}>
-          <ChevronLeft size={18} color={colors.text} strokeWidth={2} />
-        </Pressable>
-        <View style={styles.headerCenter}>
-          <Pressable
-            onPress={() => setPickerOpen(pickerOpen === 'month' ? 'none' : 'month')}
-            hitSlop={6}
-            style={({ pressed }) => [pressed && { opacity: 0.6 }]}
-          >
-            <Text variant="bodyMedium" style={{ fontFamily: fonts.serifBold, fontSize: 18 }}>
-              {format(view, 'MMMM')}
-            </Text>
+        {!pickerOpen && (
+          <Pressable onPress={handlePrevMonth} hitSlop={8} style={styles.navBtn}>
+            <ChevronLeft size={18} color={colors.text} strokeWidth={2} />
           </Pressable>
-          <Pressable
-            onPress={() => setPickerOpen(pickerOpen === 'year' ? 'none' : 'year')}
-            hitSlop={6}
-            style={({ pressed }) => [pressed && { opacity: 0.6 }]}
-          >
-            <Text variant="bodyMedium" color={colors.textSoft} style={{ fontFamily: fonts.serifBold, fontSize: 18 }}>
-              {format(view, 'yyyy')}
-            </Text>
-          </Pressable>
-        </View>
-        <Pressable onPress={handleNextMonth} hitSlop={8} style={styles.navBtn}>
-          <ChevronRight size={18} color={colors.text} strokeWidth={2} />
+        )}
+
+        <Pressable
+          onPress={() => setPickerOpen((v) => !v)}
+          hitSlop={6}
+          style={[styles.headerCenter, { flex: 1 }]}
+        >
+          <Text variant="bodyMedium" style={{ fontFamily: fonts.serifBold, fontSize: 17 }}>
+            {format(view, 'MMMM yyyy')}
+          </Text>
+          <ChevronRight
+            size={14}
+            color={colors.textMuted}
+            strokeWidth={2}
+            style={{ transform: [{ rotate: pickerOpen ? '-90deg' : '90deg' }] }}
+          />
         </Pressable>
+
+        {pickerOpen ? (
+          <Pressable onPress={() => setPickerOpen(false)} hitSlop={8} style={styles.navBtn}>
+            <X size={16} color={colors.text} strokeWidth={2} />
+          </Pressable>
+        ) : (
+          <Pressable onPress={handleNextMonth} hitSlop={8} style={styles.navBtn}>
+            <ChevronRight size={18} color={colors.text} strokeWidth={2} />
+          </Pressable>
+        )}
       </View>
 
-      {/* Month picker */}
-      {pickerOpen === 'month' ? (
-        <View style={[styles.gridWrap, { borderBottomColor: colors.hairline }]}>
-          {MONTHS_SHORT.map((m, i) => {
-            const selectedM = view.getMonth() === i;
-            return (
-              <Pressable
-                key={m}
-                onPress={() => {
-                  setView((v) => setMonth(v, i));
-                  setPickerOpen('none');
-                }}
-                style={({ pressed }) => [
-                  styles.gridCell,
-                  {
-                    backgroundColor: selectedM ? colors.text : 'transparent',
-                  },
-                  pressed && { opacity: 0.7 },
-                ]}
-              >
-                <Text
-                  variant="smallMedium"
-                  color={selectedM ? colors.bg : colors.text}
+      {/* ── Unified year + month picker ──────────────────────── */}
+      {pickerOpen ? (
+        <View style={[styles.pickerPanel, { borderBottomColor: colors.hairline }]}>
+          {/* Year grid — scrollable. Uses plain ScrollView (no virtualization) to play
+              nicely when nested inside the Sheet's BottomSheetScrollView. */}
+          <ScrollView
+            ref={yearScrollRef}
+            style={{ maxHeight: PICKER_MAX_HEIGHT }}
+            nestedScrollEnabled
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.yearGrid}
+          >
+            {years.map((y) => {
+              const isSelected = view.getFullYear() === y;
+              return (
+                <Pressable
+                  key={y}
+                  onPress={() => handleSelectYear(y)}
+                  style={({ pressed }) => [
+                    styles.yearCell,
+                    { backgroundColor: isSelected ? colors.text : 'transparent' },
+                    pressed && { opacity: 0.7 },
+                  ]}
                 >
-                  {m}
-                </Text>
-              </Pressable>
-            );
-          })}
+                  <Text
+                    variant="smallMedium"
+                    color={isSelected ? colors.bg : colors.text}
+                  >
+                    {y}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          {/* Divider */}
+          <View style={{ height: 1, backgroundColor: colors.hairline, marginVertical: spacing.xs }} />
+
+          {/* Month grid — always visible below years */}
+          <View style={styles.monthGrid}>
+            {MONTHS_SHORT.map((m, i) => {
+              const isSelected = view.getMonth() === i;
+              return (
+                <Pressable
+                  key={m}
+                  onPress={() => handleSelectMonth(i)}
+                  style={({ pressed }) => [
+                    styles.monthCell,
+                    { backgroundColor: isSelected ? colors.text : 'transparent' },
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  <Text
+                    variant="smallMedium"
+                    color={isSelected ? colors.bg : colors.text}
+                  >
+                    {m}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
       ) : null}
 
-      {/* Year picker */}
-      {pickerOpen === 'year' ? (
-        <ScrollView
-          style={{ maxHeight: 220, borderBottomWidth: 1, borderBottomColor: colors.hairline }}
-          contentContainerStyle={styles.gridWrap}
-          showsVerticalScrollIndicator={false}
-        >
-          {years.map((y) => {
-            const selectedY = view.getFullYear() === y;
-            return (
-              <Pressable
-                key={y}
-                onPress={() => {
-                  setView((v) => setYear(v, y));
-                  setPickerOpen('none');
-                }}
-                style={({ pressed }) => [
-                  styles.gridCellYear,
-                  { backgroundColor: selectedY ? colors.text : 'transparent' },
-                  pressed && { opacity: 0.7 },
-                ]}
-              >
-                <Text variant="smallMedium" color={selectedY ? colors.bg : colors.text}>
-                  {y}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      ) : null}
-
-      {/* Calendar grid (header hidden — we render our own) */}
+      {/* ── Calendar grid ────────────────────────────────────── */}
       <Calendar
-        key={monthKey} // force remount on view change
+        key={monthKey}
         current={monthKey}
         minDate={minDate}
         onDayPress={(d) => onSelect(d.dateString)}
@@ -211,26 +254,46 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
+    gap: spacing.sm,
   },
-  headerCenter: { flexDirection: 'row', gap: spacing.sm, alignItems: 'center' },
+  headerCenter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: 4,
+  },
   navBtn: {
     width: 32, height: 32, borderRadius: 16,
     alignItems: 'center', justifyContent: 'center',
   },
-  gridWrap: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs,
-    padding: spacing.md,
+  pickerPanel: {
     borderBottomWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
   },
-  gridCell: {
-    width: '23%',
-    paddingVertical: spacing.md,
+  yearGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: YEAR_GAP,
+    paddingBottom: spacing.xs,
+  },
+  yearCell: {
+    // Three columns with small gaps. 31% accounts for two YEAR_GAPs between three items.
+    width: '31.5%',
+    height: YEAR_ROW_H,
     borderRadius: radii.md,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  gridCellYear: {
+  monthGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  monthCell: {
     width: '23%',
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     borderRadius: radii.md,
     alignItems: 'center',
   },
