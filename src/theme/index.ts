@@ -6,5 +6,5 @@ export type { TypeVariant } from './typography';
 export { ThemeProvider, useTheme, useColors } from './ThemeProvider';
 export { resolveTint } from './tintMap';
 export type { ThemeMode } from './ThemeProvider';
-export { lightPalette, darkPalette } from './palettes';
+export { lightPalette, darkPalette, midPalette } from './palettes';
 export type { Palette } from './palettes';

@@ -44,10 +44,10 @@ export type LearningInput = {
 };
 
 export const RESOURCE_META: Record<ResourceKind, { label: string; tint: string }> = {
-  book: { label: 'Book', tint: '#F4ECD3' },
-  video: { label: 'Video', tint: '#F0DEDE' },
-  article: { label: 'Article', tint: '#DEE8EF' },
-  course: { label: 'Course', tint: '#EBE3F0' },
-  podcast: { label: 'Podcast', tint: '#E4EADF' },
-  other: { label: 'Other', tint: '#F7E3D9' },
+  book:    { label: 'Book',    tint: '#EEE4C8' },   // butterSoft
+  video:   { label: 'Video',   tint: '#EBDADA' },   // roseSoft
+  article: { label: 'Article', tint: '#DCE5EA' },   // skySoft
+  course:  { label: 'Course',  tint: '#E7E0EC' },   // lavenderSoft
+  podcast: { label: 'Podcast', tint: '#E3E8DE' },   // sageSoft
+  other:   { label: 'Other',   tint: '#F1DDD4' },   // peachSoft
 };

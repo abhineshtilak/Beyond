@@ -25,7 +25,7 @@ import { Text } from '@/components/Text';
 import { IconButton } from '@/components/IconButton';
 import { ProgressRing } from '@/components/ProgressRing';
 import { EditableSection } from '@/components/EditableSection';
-import { colors, radii, spacing, palette } from '@/theme';
+import { radii, spacing, useColors, useTheme, resolveTint } from '@/theme';
 import { confirm } from '@/lib/confirm';
 import * as repo from '@/features/goals/repo';
 import { useGoalsStore } from '@/features/goals/store';
@@ -41,6 +41,8 @@ export default function GoalDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const colors = useColors();
+  const { resolved } = useTheme();
   const refreshList = useGoalsStore((s) => s.refresh);
 
   const [goal, setGoal] = useState<Goal | null>(null);
@@ -138,7 +140,7 @@ export default function GoalDetailScreen() {
   }
 
   const catMeta = goal.category ? GOAL_CATEGORY_META[goal.category] : null;
-  const tint = catMeta?.tint ?? palette.creamSoft;
+  const tint = resolveTint(catMeta?.tint, resolved) ?? colors.surfaceAlt;
   const daysRemaining = goal.targetDate ? differenceInCalendarDays(parseISO(goal.targetDate), new Date()) : null;
 
   const daysLabel = (() => {
@@ -225,12 +227,12 @@ export default function GoalDetailScreen() {
           {/* QUICK ACTIONS */}
           <View style={styles.quickActions}>
             {goal.status !== 'completed' ? (
-              <Pressable onPress={markComplete} style={({ pressed }) => [styles.actionBtn, pressed && { opacity: 0.8 }]}>
+              <Pressable onPress={markComplete} style={({ pressed }) => [styles.actionBtn, { backgroundColor: colors.surface, borderColor: colors.hairline }, pressed && { opacity: 0.8 }]}>
                 <CheckCircle2 size={16} color={colors.text} strokeWidth={1.8} />
                 <Text variant="smallMedium">Mark reached</Text>
               </Pressable>
             ) : null}
-            <Pressable onPress={cycleStatus} style={({ pressed }) => [styles.actionBtn, pressed && { opacity: 0.8 }]}>
+            <Pressable onPress={cycleStatus} style={({ pressed }) => [styles.actionBtn, { backgroundColor: colors.surface, borderColor: colors.hairline }, pressed && { opacity: 0.8 }]}>
               {goal.status === 'paused' ? (
                 <Play size={16} color={colors.text} strokeWidth={1.8} />
               ) : (
@@ -238,7 +240,7 @@ export default function GoalDetailScreen() {
               )}
               <Text variant="smallMedium">{goal.status === 'paused' ? 'Resume' : 'Pause'}</Text>
             </Pressable>
-            <Pressable onPress={handleDelete} style={({ pressed }) => [styles.actionBtn, pressed && { opacity: 0.8 }]}>
+            <Pressable onPress={handleDelete} style={({ pressed }) => [styles.actionBtn, { backgroundColor: colors.surface, borderColor: colors.hairline }, pressed && { opacity: 0.8 }]}>
               <Trash2 size={16} color="#B97A6B" strokeWidth={1.8} />
               <Text variant="smallMedium" color="#B97A6B">Delete</Text>
             </Pressable>
@@ -251,7 +253,7 @@ export default function GoalDetailScreen() {
               value={goal.why}
               placeholder="Why this, and why now? The reason has to be larger than your resistance."
               onPress={() => editText('your why', 'why', 'The reason behind this goal...', 'Your why')}
-              tint={palette.creamSoft}
+              tint={colors.surfaceAlt}
               serif
             />
             <EditableSection
@@ -343,9 +345,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radii.pill,
-    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.hairline,
   },
   sections: {
     paddingHorizontal: spacing.xxl,

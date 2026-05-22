@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Text } from '@/components/Text';
-import { colors, radii, spacing } from '@/theme';
+import { radii, spacing, useColors } from '@/theme';
 import { MOOD_META } from './types';
 import type { Mood } from './types';
 
@@ -14,6 +14,8 @@ type Props = {
 const ORDER: Mood[] = ['great', 'good', 'ok', 'low', 'bad'];
 
 export function MoodPicker({ value, onChange }: Props) {
+  const colors = useColors();
+
   return (
     <View style={styles.row}>
       {ORDER.map((m) => {
@@ -33,10 +35,14 @@ export function MoodPicker({ value, onChange }: Props) {
               style={[
                 styles.dot,
                 { backgroundColor: meta.tint, opacity: selected ? 1 : 0.45 },
-                selected && styles.dotSelected,
+                selected && { borderWidth: 2, borderColor: colors.text },
               ]}
             />
-            <Text variant="caption" color={selected ? colors.text : colors.textMuted} style={{ marginTop: 6 }}>
+            <Text
+              variant="caption"
+              color={selected ? colors.text : colors.textMuted}
+              style={{ marginTop: 6 }}
+            >
               {meta.label.toUpperCase()}
             </Text>
           </Pressable>
@@ -57,9 +63,5 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: radii.pill,
-  },
-  dotSelected: {
-    borderWidth: 2,
-    borderColor: colors.text,
   },
 });

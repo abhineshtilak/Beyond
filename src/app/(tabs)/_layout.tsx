@@ -1,15 +1,16 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { TabBar } from '@/components/TabBar';
-import { colors } from '@/theme';
+import { useColors } from '@/theme';
 
 export default function TabsLayout() {
+  const colors = useColors();
   return (
     <Tabs
       tabBar={(props) => <TabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        animation: 'shift',
+        animation: 'none',
         sceneStyle: { backgroundColor: colors.bg },
       }}
     >

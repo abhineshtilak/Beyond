@@ -105,7 +105,7 @@ function RootShell() {
               headerShown: false,
               contentStyle: { backgroundColor: themed.bg },
               animation: 'slide_from_right',
-              animationDuration: 220,
+              animationDuration: 150,
             }}
           >
             <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />

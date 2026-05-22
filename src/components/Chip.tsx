@@ -15,8 +15,8 @@ type Props = {
 
 export function Chip({ label, selected, onPress, tint, style, leading, size = 'md' }: Props) {
   const colors = useColors();
-  const isDark = useTheme().resolved === 'dark';
-  const themedTint = resolveTint(tint, isDark);
+  const { resolved } = useTheme();
+  const themedTint = resolveTint(tint, resolved);
   const bg = selected ? (themedTint ?? colors.text) : colors.surface;
   const fg = selected ? (themedTint ? colors.text : colors.bg) : colors.textSoft;
   const border = selected ? 'transparent' : colors.hairline;

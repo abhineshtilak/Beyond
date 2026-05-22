@@ -9,6 +9,7 @@ import {
   Sun,
   Moon,
   Monitor,
+  Contrast,
   Bell,
   Lock,
   Info,
@@ -150,6 +151,12 @@ export default function SettingsScreen() {
                   onPress={() => setMode('light')}
                 />
                 <ThemeChip
+                  label="Mid"
+                  icon={Contrast}
+                  selected={mode === 'mid'}
+                  onPress={() => setMode('mid')}
+                />
+                <ThemeChip
                   label="Dark"
                   icon={Moon}
                   selected={mode === 'dark'}
@@ -163,7 +170,7 @@ export default function SettingsScreen() {
                 />
               </View>
               <Text variant="small" color={colors.textMuted} style={{ marginTop: spacing.xs }}>
-                Dark theme is soft and warm — easy on tired eyes.
+                Mid is a warm walnut tone — cozy between light and dark.
               </Text>
             </View>
           </Section>
@@ -354,11 +361,12 @@ function ThemeChip({ label, icon: IconCmp, selected, onPress }: { label: string;
       style={({ pressed }) => [
         {
           flex: 1,
-          flexDirection: 'row',
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: 6,
+          gap: 5,
           paddingVertical: spacing.md,
+          paddingHorizontal: 4,
           borderRadius: radii.lg,
           borderWidth: 1,
           backgroundColor: selected ? colors.text : colors.surface,
@@ -368,7 +376,7 @@ function ThemeChip({ label, icon: IconCmp, selected, onPress }: { label: string;
       ]}
     >
       <IconCmp size={16} color={selected ? colors.bg : colors.text} strokeWidth={1.75} />
-      <Text variant="smallMedium" color={selected ? colors.bg : colors.text}>{label}</Text>
+      <Text variant="caption" color={selected ? colors.bg : colors.textSoft}>{label}</Text>
     </Pressable>
   );
 }

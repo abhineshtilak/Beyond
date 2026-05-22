@@ -52,9 +52,9 @@ export function findPrompt(key: string | null): Prompt | null {
 }
 
 export const MOOD_OPTIONS: { key: Mood; label: string; tint: string }[] = [
-  { key: 'great', label: 'Great', tint: '#A8B89F' },
-  { key: 'good',  label: 'Good',  tint: '#9EB7C9' },
-  { key: 'ok',    label: 'Okay',  tint: '#E8D095' },
-  { key: 'low',   label: 'Low',   tint: '#E8B4A0' },
-  { key: 'bad',   label: 'Tough', tint: '#D8A4A4' },
+  { key: 'great', label: 'Great', tint: '#A8B89F' },   // sage
+  { key: 'good',  label: 'Good',  tint: '#9EB7C9' },   // sky
+  { key: 'ok',    label: 'Okay',  tint: '#E8D095' },   // butter
+  { key: 'low',   label: 'Low',   tint: '#E8B4A0' },   // peach
+  { key: 'bad',   label: 'Tough', tint: '#D8A4A4' },   // rose
 ];

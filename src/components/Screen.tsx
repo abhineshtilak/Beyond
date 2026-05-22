@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, ScrollView, StyleSheet, ViewStyle, StatusBar } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { spacing, useColors } from '@/theme';
+import { spacing, useColors, useTheme } from '@/theme';
 
 type Props = {
   children: React.ReactNode;
@@ -24,6 +24,7 @@ export function Screen({
 }: Props) {
   const insets = useSafeAreaInsets();
   const colors = useColors();
+  const { resolved } = useTheme();
   const bottomInset = tabBarPadding ? 96 + insets.bottom : insets.bottom;
 
   const innerStyle = [
@@ -42,7 +43,7 @@ export function Screen({
   return (
     <SafeAreaView edges={edges} style={[styles.root, style]}>
       <StatusBar
-        barStyle={colors.bg.startsWith('#1') ? 'light-content' : 'dark-content'}
+        barStyle={resolved === 'light' ? 'dark-content' : 'light-content'}
         backgroundColor={colors.bg}
       />
       {scroll ? (

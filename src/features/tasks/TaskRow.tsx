@@ -7,7 +7,7 @@ import * as Haptics from 'expo-haptics';
 import { format, parseISO, isToday, isTomorrow, isPast } from 'date-fns';
 import { Checkbox } from '@/components/Checkbox';
 import { Text } from '@/components/Text';
-import { colors, radii, spacing } from '@/theme';
+import { radii, spacing, useColors, useTheme, resolveTint } from '@/theme';
 import { CATEGORY_META, PRIORITY_META } from './types';
 import type { Task } from './types';
 
@@ -22,15 +22,6 @@ type Props = {
   onSelect?: () => void;
 };
 
-function dueLabel(due: string | null): { text: string; tint: string } | null {
-  if (!due) return null;
-  const d = parseISO(due);
-  if (isToday(d)) return { text: 'Today', tint: colors.text };
-  if (isTomorrow(d)) return { text: 'Tomorrow', tint: colors.textSoft };
-  if (isPast(d)) return { text: format(d, 'MMM d') + ' · overdue', tint: '#B97A6B' };
-  return { text: format(d, 'MMM d'), tint: colors.textMuted };
-}
-
 export function TaskRow({
   task,
   onToggle,
@@ -41,11 +32,28 @@ export function TaskRow({
   onLongPress,
   onSelect,
 }: Props) {
+  const colors = useColors();
+  const { resolved } = useTheme();
   const swipeRef = useRef<Swipeable>(null);
   const done = task.status === 'completed';
-  const due = dueLabel(task.dueDate);
-  const catTint = task.category ? CATEGORY_META[task.category].tint : null;
-  const prioTint = task.priority > 1 ? PRIORITY_META[task.priority].tint : null;
+
+  const dueInfo = (() => {
+    if (!task.dueDate) return null;
+    const d = parseISO(task.dueDate);
+    if (isToday(d))    return { text: 'Today',    tint: colors.text };
+    if (isTomorrow(d)) return { text: 'Tomorrow', tint: colors.textSoft };
+    if (isPast(d))     return { text: format(d, 'MMM d') + ' · overdue', tint: '#B97A6B' };
+    return { text: format(d, 'MMM d'), tint: colors.textMuted };
+  })();
+
+  const catTint = resolveTint(
+    task.category ? CATEGORY_META[task.category].tint : null,
+    resolved,
+  );
+  const prioTint = resolveTint(
+    task.priority > 1 ? PRIORITY_META[task.priority].tint : null,
+    resolved,
+  );
 
   const titleStyle = useAnimatedStyle(() => ({
     opacity: withTiming(done ? 0.5 : 1, { duration: 200 }),
@@ -64,12 +72,21 @@ export function TaskRow({
       delayLongPress={300}
       style={({ pressed }) => [
         styles.row,
-        selected && styles.rowSelected,
+        {
+          backgroundColor: selected ? colors.accentSoft : colors.surface,
+          borderColor: selected ? colors.text : colors.hairline,
+        },
         pressed && { opacity: 0.85 },
       ]}
     >
       {selectionMode ? (
-        <View style={[styles.selBox, selected && styles.selBoxOn]}>
+        <View
+          style={[
+            styles.selBox,
+            { borderColor: colors.hairline },
+            selected && { backgroundColor: colors.text, borderColor: colors.text },
+          ]}
+        >
           {selected ? <Check size={16} color={colors.bg} strokeWidth={3} /> : null}
         </View>
       ) : (
@@ -88,16 +105,16 @@ export function TaskRow({
             {task.title}
           </Text>
         </Animated.View>
-        {(due || task.category) && (
+        {(dueInfo || task.category) && (
           <View style={styles.meta}>
-            {due ? (
+            {dueInfo ? (
               <View style={styles.metaItem}>
-                <CalendarClock size={12} color={due.tint} strokeWidth={2} />
-                <Text variant="caption" color={due.tint}>{due.text.toUpperCase()}</Text>
+                <CalendarClock size={12} color={dueInfo.tint} strokeWidth={2} />
+                <Text variant="caption" color={dueInfo.tint}>{dueInfo.text.toUpperCase()}</Text>
               </View>
             ) : null}
-            {task.category ? (
-              <View style={[styles.categoryDot, { backgroundColor: catTint! }]} />
+            {task.category && catTint ? (
+              <View style={[styles.categoryDot, { backgroundColor: catTint }]} />
             ) : null}
             {task.category ? (
               <Text variant="caption" color={colors.textMuted}>
@@ -121,7 +138,7 @@ export function TaskRow({
         onDelete();
       }}
     >
-      <Trash2 size={20} color={colors.bg} strokeWidth={2} />
+      <Trash2 size={20} color="#fff" strokeWidth={2} />
     </RectButton>
   );
 
@@ -139,28 +156,17 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
-    backgroundColor: colors.surface,
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: colors.hairline,
-  },
-  rowSelected: {
-    borderColor: colors.text,
-    backgroundColor: colors.accentSoft,
   },
   selBox: {
     width: 26,
     height: 26,
     borderRadius: 13,
     borderWidth: 1.5,
-    borderColor: colors.hairline,
     backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  selBoxOn: {
-    backgroundColor: colors.text,
-    borderColor: colors.text,
   },
   meta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },

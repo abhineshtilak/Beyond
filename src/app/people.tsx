@@ -9,7 +9,7 @@ import { IconButton } from '@/components/IconButton';
 import { EmptyState } from '@/components/EmptyState';
 import { Fab } from '@/components/Fab';
 import { SelectionDeleteBtn } from '@/components/SelectionDeleteBtn';
-import { radii, spacing, useColors } from '@/theme';
+import { radii, spacing, useColors, useTheme, resolveTint } from '@/theme';
 import { confirm } from '@/lib/confirm';
 import { usePeopleStore } from '@/features/people/store';
 import { RELATION_META, type Person } from '@/features/people/types';
@@ -148,7 +148,9 @@ function PersonRow({
   onLongPress: () => void;
 }) {
   const colors = useColors();
+  const { resolved } = useTheme();
   const cat = person.relation ? RELATION_META[person.relation] : null;
+  const catTint = resolveTint(cat?.tint, resolved);
   const dueIn = repo.reminderDueIn(person);
   const daysSince = repo.daysSinceContact(person);
 
@@ -176,7 +178,7 @@ function PersonRow({
         pressed && { opacity: 0.92 },
       ]}
     >
-      <View style={[styles.avatarWrap, { backgroundColor: cat?.tint ?? colors.surfaceAlt }]}>
+      <View style={[styles.avatarWrap, { backgroundColor: catTint ?? colors.surfaceAlt }]}>
         {person.photoUri ? (
           <Image source={{ uri: person.photoUri }} style={styles.avatar} />
         ) : (

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import Svg, { Circle, G } from 'react-native-svg';
-import { colors } from '@/theme';
+import { useColors } from '@/theme';
 import { Text } from './Text';
 
 type Props = {
@@ -17,10 +17,14 @@ export function ProgressRing({
   progress,
   size = 72,
   strokeWidth = 6,
-  color = colors.text,
-  trackColor = colors.hairline,
+  color,
+  trackColor,
   label,
 }: Props) {
+  const colors = useColors();
+  const ringColor = color ?? colors.text;
+  const ringTrack = trackColor ?? colors.hairline;
+
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const clamped = Math.max(0, Math.min(100, progress));
@@ -34,7 +38,7 @@ export function ProgressRing({
             cx={size / 2}
             cy={size / 2}
             r={radius}
-            stroke={trackColor}
+            stroke={ringTrack}
             strokeWidth={strokeWidth}
             fill="none"
           />
@@ -42,7 +46,7 @@ export function ProgressRing({
             cx={size / 2}
             cy={size / 2}
             r={radius}
-            stroke={color}
+            stroke={ringColor}
             strokeWidth={strokeWidth}
             fill="none"
             strokeLinecap="round"

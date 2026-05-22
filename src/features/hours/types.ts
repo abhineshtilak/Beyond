@@ -25,8 +25,8 @@ export const HOUR_CATEGORY_META: Record<HourCategory, { label: string; tint: str
   social:    { label: 'Social',   tint: '#E8D095' },
   rest:      { label: 'Rest',     tint: '#C9C2B7' },
   creative:  { label: 'Creative', tint: '#D8A4A4' },
-  personal:  { label: 'Personal', tint: '#F5F0E6' },
-  commute:   { label: 'Commute',  tint: '#DEE8EF' },
+  personal:  { label: 'Personal', tint: '#EFE7DC' },   // surfaceAlt
+  commute:   { label: 'Commute',  tint: '#DCE5EA' },   // skySoft
   idle:      { label: 'Wasted',   tint: '#ECC4BB' },
 };
 

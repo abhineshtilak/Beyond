@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { format, subDays, startOfWeek, eachDayOfInterval, addDays, isSameDay, parseISO } from 'date-fns';
+import { format, subDays, startOfWeek, eachDayOfInterval, addDays, isSameDay } from 'date-fns';
 import { Text } from '@/components/Text';
-import { colors, radii, spacing } from '@/theme';
+import { radii, spacing, useColors } from '@/theme';
 import { MOOD_META } from './types';
 import type { DiaryEntry } from './types';
 
@@ -14,6 +14,7 @@ type Props = {
 const DAYS_LABEL = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export function MoodHeatmap({ entries, weeks = 14 }: Props) {
+  const colors = useColors();
   const today = new Date();
   const start = startOfWeek(subDays(today, weeks * 7 - 1), { weekStartsOn: 0 });
   const days = useMemo(
@@ -27,7 +28,6 @@ export function MoodHeatmap({ entries, weeks = 14 }: Props) {
     return m;
   }, [entries]);
 
-  // Pivot into columns (one column per week, 7 rows)
   const columns: Date[][] = [];
   for (let w = 0; w < weeks; w++) {
     const col: Date[] = [];
@@ -36,7 +36,12 @@ export function MoodHeatmap({ entries, weeks = 14 }: Props) {
   }
 
   return (
-    <View style={styles.wrap}>
+    <View
+      style={[
+        styles.wrap,
+        { backgroundColor: colors.surface, borderColor: colors.hairline },
+      ]}
+    >
       <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
         Mood · last {weeks} weeks
       </Text>
@@ -92,10 +97,8 @@ const GAP = 4;
 
 const styles = StyleSheet.create({
   wrap: {
-    backgroundColor: colors.surface,
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: colors.hairline,
     padding: spacing.lg,
     gap: spacing.md,
   },

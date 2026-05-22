@@ -29,16 +29,16 @@ export type TaskInput = {
 };
 
 export const PRIORITY_META: Record<TaskPriority, { label: string; tint: string }> = {
-  1: { label: 'Low', tint: '#DEE8EF' },
-  2: { label: 'Medium', tint: '#F4ECD3' },
-  3: { label: 'High', tint: '#F0DEDE' },
+  1: { label: 'Low',    tint: '#DCE5EA' },   // skySoft
+  2: { label: 'Medium', tint: '#EEE4C8' },   // butterSoft
+  3: { label: 'High',   tint: '#EBDADA' },   // roseSoft
 };
 
 export const CATEGORY_META: Record<TaskCategory, { label: string; tint: string }> = {
-  work: { label: 'Work', tint: '#DEE8EF' },
-  personal: { label: 'Personal', tint: '#F7E3D9' },
-  health: { label: 'Health', tint: '#E4EADF' },
-  learning: { label: 'Learning', tint: '#EBE3F0' },
-  finance: { label: 'Finance', tint: '#F4ECD3' },
-  other: { label: 'Other', tint: '#F0DEDE' },
+  work:     { label: 'Work',     tint: '#DCE5EA' },   // skySoft
+  personal: { label: 'Personal', tint: '#F1DDD4' },   // peachSoft
+  health:   { label: 'Health',   tint: '#E3E8DE' },   // sageSoft
+  learning: { label: 'Learning', tint: '#E7E0EC' },   // lavenderSoft
+  finance:  { label: 'Finance',  tint: '#EEE4C8' },   // butterSoft
+  other:    { label: 'Other',    tint: '#EBDADA' },   // roseSoft
 };

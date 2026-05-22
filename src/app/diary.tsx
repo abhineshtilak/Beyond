@@ -17,7 +17,7 @@ import { MoodPicker } from '@/features/diary/MoodPicker';
 import { useDiaryStore } from '@/features/diary/store';
 import * as diaryRepo from '@/features/diary/repo';
 import type { DiaryEntry, Mood } from '@/features/diary/types';
-import { colors, radii, spacing, shadows } from '@/theme';
+import { radii, spacing, shadows, useColors } from '@/theme';
 import { ymd } from '@/lib/date';
 
 const PROMPTS: { key: keyof Pick<DiaryEntry, 'good' | 'bad' | 'learned' | 'progress' | 'happy'>; label: string; placeholder: string }[] = [
@@ -36,6 +36,7 @@ function dateLabel(d: string) {
 }
 
 export default function DiaryScreen() {
+  const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ date?: string }>();
@@ -101,7 +102,7 @@ export default function DiaryScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <SafeAreaView style={styles.root} edges={['top']}>
+      <SafeAreaView style={[styles.root, { backgroundColor: colors.bg }]} edges={['top']}>
         <View style={styles.header}>
           <IconButton icon={ChevronLeft} onPress={() => router.back()} bg={colors.surface} />
           <View style={{ flex: 1 }}>
@@ -148,12 +149,22 @@ export default function DiaryScreen() {
             ))}
           </ScrollView>
 
-          <View style={[styles.saveBar, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
+          <View
+            style={[
+              styles.saveBar,
+              {
+                paddingBottom: Math.max(insets.bottom, spacing.lg),
+                backgroundColor: colors.bg,
+                borderTopColor: colors.hairline,
+              },
+            ]}
+          >
             <Pressable
               onPress={handleSave}
               disabled={saving}
               style={({ pressed }) => [
                 styles.saveBtn,
+                { backgroundColor: colors.text },
                 pressed && { opacity: 0.85 },
                 saving && { opacity: 0.6 },
               ]}
@@ -171,7 +182,7 @@ export default function DiaryScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -190,11 +201,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xxl,
     paddingTop: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: colors.hairline,
-    backgroundColor: colors.bg,
   },
   saveBtn: {
-    backgroundColor: colors.text,
     paddingVertical: spacing.lg,
     borderRadius: radii.pill,
     flexDirection: 'row',

@@ -7,7 +7,7 @@ import { Text } from '@/components/Text';
 import { Chip } from '@/components/Chip';
 import { EmptyState } from '@/components/EmptyState';
 import { Fab } from '@/components/Fab';
-import { colors, spacing } from '@/theme';
+import { spacing, useColors } from '@/theme';
 import { useGoalsStore } from '@/features/goals/store';
 import { GoalCard } from '@/features/goals/GoalCard';
 import { GoalQuickAdd, GoalQuickAddRef } from '@/features/goals/GoalQuickAdd';
@@ -21,6 +21,7 @@ const FILTERS: { key: Filter; label: string }[] = [
 ];
 
 export default function GoalsScreen() {
+  const colors = useColors();
   const goals = useGoalsStore((s) => s.goals);
   const refresh = useGoalsStore((s) => s.refresh);
   const [filter, setFilter] = useState<Filter>('active');

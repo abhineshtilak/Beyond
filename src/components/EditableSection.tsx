@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { ChevronRight, Plus } from 'lucide-react-native';
 import { Text } from './Text';
-import { colors, radii, spacing } from '@/theme';
+import { radii, spacing, useColors } from '@/theme';
 
 type Props = {
   label: string;
@@ -14,13 +14,20 @@ type Props = {
 };
 
 export function EditableSection({ label, value, placeholder, onPress, tint, serif }: Props) {
+  const colors = useColors();
   const filled = !!(value && value.trim());
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [
-      styles.card,
-      tint ? { backgroundColor: tint } : null,
-      pressed && { opacity: 0.85 },
-    ]}>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.card,
+        {
+          backgroundColor: tint ?? colors.surface,
+          borderColor: colors.hairline,
+        },
+        pressed && { opacity: 0.85 },
+      ]}
+    >
       <View style={styles.head}>
         <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
           {label}
@@ -28,7 +35,7 @@ export function EditableSection({ label, value, placeholder, onPress, tint, seri
         {filled ? (
           <ChevronRight size={16} color={colors.textMuted} strokeWidth={1.75} />
         ) : (
-          <View style={styles.addBadge}>
+          <View style={[styles.addBadge, { backgroundColor: colors.surfaceAlt }]}>
             <Plus size={12} color={colors.textSoft} strokeWidth={2} />
             <Text variant="caption" color={colors.textSoft}>ADD</Text>
           </View>
@@ -47,10 +54,8 @@ export function EditableSection({ label, value, placeholder, onPress, tint, seri
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.surface,
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: colors.hairline,
     padding: spacing.lg,
   },
   head: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -61,6 +66,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
     borderRadius: radii.pill,
-    backgroundColor: colors.surfaceAlt,
   },
 });

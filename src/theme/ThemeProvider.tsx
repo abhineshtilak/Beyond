@@ -1,14 +1,14 @@
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import { useColorScheme } from 'react-native';
 import { getDB } from '@/lib/db';
-import { lightPalette, darkPalette, type Palette } from './palettes';
+import { lightPalette, darkPalette, midPalette, type Palette } from './palettes';
 
-export type ThemeMode = 'light' | 'dark' | 'system';
+export type ThemeMode = 'light' | 'dark' | 'mid' | 'system';
 
 type ThemeCtx = {
   mode: ThemeMode;
   setMode: (m: ThemeMode) => Promise<void>;
-  resolved: 'light' | 'dark';
+  resolved: 'light' | 'dark' | 'mid';
   colors: Palette;
 };
 
@@ -21,7 +21,7 @@ async function loadStored(): Promise<ThemeMode> {
       `SELECT value FROM settings WHERE key = 'themeMode'`,
     );
     const v = row?.value as ThemeMode | undefined;
-    if (v === 'light' || v === 'dark' || v === 'system') return v;
+    if (v === 'light' || v === 'dark' || v === 'mid' || v === 'system') return v;
   } catch {}
   return 'system';
 }
@@ -49,12 +49,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     await saveStored(m);
   }, []);
 
-  const resolved: 'light' | 'dark' = useMemo(() => {
-    if (mode === 'system') return (systemScheme === 'dark' ? 'dark' : 'light');
+  const resolved: 'light' | 'dark' | 'mid' = useMemo(() => {
+    if (mode === 'mid') return 'mid';
+    if (mode === 'system') return systemScheme === 'dark' ? 'dark' : 'light';
     return mode;
   }, [mode, systemScheme]);
 
-  const colors = resolved === 'dark' ? darkPalette : lightPalette;
+  const colors: Palette =
+    resolved === 'dark' ? darkPalette : resolved === 'mid' ? midPalette : lightPalette;
 
   const value = useMemo<ThemeCtx>(
     () => ({ mode, setMode, resolved, colors }),
@@ -67,7 +69,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 export function useTheme(): ThemeCtx {
   const ctx = useContext(Ctx);
   if (!ctx) {
-    // Fallback to light if used outside provider (during initial paint)
     return {
       mode: 'system',
       setMode: async () => {},

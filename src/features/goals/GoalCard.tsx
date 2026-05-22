@@ -4,7 +4,7 @@ import { Calendar, Flag, Sparkles } from 'lucide-react-native';
 import { format, parseISO } from 'date-fns';
 import { Text } from '@/components/Text';
 import { ProgressRing } from '@/components/ProgressRing';
-import { colors, radii, spacing, shadows } from '@/theme';
+import { radii, spacing, shadows, useColors, useTheme, resolveTint } from '@/theme';
 import { GOAL_CATEGORY_META } from './types';
 import type { GoalWithStats } from './types';
 
@@ -14,8 +14,17 @@ type Props = {
 };
 
 export function GoalCard({ goal, onPress }: Props) {
+  const colors = useColors();
+  const { resolved } = useTheme();
+
   const catMeta = goal.category ? GOAL_CATEGORY_META[goal.category] : null;
-  const tint = catMeta?.tint ?? colors.surfaceAlt;
+  const rawTint = catMeta?.tint;
+  const tint = resolveTint(rawTint, resolved) ?? colors.surfaceAlt;
+
+  // Translucent chip bg that works on any theme — uses surface with alpha
+  const chipBg = resolved === 'light'
+    ? 'rgba(255,255,255,0.75)'
+    : 'rgba(255,255,255,0.12)';
 
   const daysLabel = (() => {
     if (goal.status === 'completed') return 'Reached';
@@ -27,25 +36,31 @@ export function GoalCard({ goal, onPress }: Props) {
   })();
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && { opacity: 0.92 }]}>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.card,
+        { backgroundColor: colors.surface, borderColor: colors.hairline },
+        pressed && { opacity: 0.92 },
+      ]}
+    >
       <View style={[styles.hero, { backgroundColor: tint }]}>
         {goal.heroImageUri ? (
           <Image source={{ uri: goal.heroImageUri }} style={StyleSheet.absoluteFillObject} />
         ) : null}
-        <View style={styles.heroOverlay} />
         <View style={styles.heroTop}>
           {catMeta ? (
-            <View style={styles.chipLight}>
+            <View style={[styles.chip, { backgroundColor: chipBg }]}>
               <Text variant="caption" color={colors.textSoft}>{catMeta.label.toUpperCase()}</Text>
             </View>
           ) : null}
           {goal.status !== 'active' ? (
-            <View style={styles.statusChip}>
+            <View style={[styles.chip, { backgroundColor: chipBg }]}>
               <Text variant="caption" color={colors.textSoft}>{goal.status.toUpperCase()}</Text>
             </View>
           ) : null}
         </View>
-        <View style={styles.heroBottom}>
+        <View>
           <Text variant="h2" color={colors.text} numberOfLines={2}>{goal.title}</Text>
         </View>
       </View>
@@ -84,10 +99,8 @@ export function GoalCard({ goal, onPress }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.surface,
     borderRadius: radii.xl,
     borderWidth: 1,
-    borderColor: colors.hairline,
     overflow: 'hidden',
     ...shadows.card,
   },
@@ -98,28 +111,16 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
     justifyContent: 'space-between',
   },
-  heroOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.0)',
-  },
   heroTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  chipLight: {
-    backgroundColor: 'rgba(255,255,255,0.75)',
+  chip: {
     paddingHorizontal: spacing.md,
     paddingVertical: 4,
     borderRadius: radii.pill,
   },
-  statusChip: {
-    backgroundColor: 'rgba(255,255,255,0.6)',
-    paddingHorizontal: spacing.md,
-    paddingVertical: 4,
-    borderRadius: radii.pill,
-  },
-  heroBottom: {},
   body: {
     flexDirection: 'row',
     alignItems: 'center',

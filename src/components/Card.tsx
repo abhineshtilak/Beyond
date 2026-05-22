@@ -13,8 +13,8 @@ type Props = {
 
 export function Card({ children, onPress, style, padding = 'xl', tint, flat = false }: Props) {
   const colors = useColors();
-  const isDark = useTheme().resolved === 'dark';
-  const themedTint = resolveTint(tint, isDark);
+  const { resolved } = useTheme();
+  const themedTint = resolveTint(tint, resolved);
   const containerStyle: ViewStyle = {
     backgroundColor: themedTint ?? colors.surface,
     borderRadius: radii.xl,

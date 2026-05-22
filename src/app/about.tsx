@@ -2,12 +2,19 @@ import React from 'react';
 import { View, ScrollView, StyleSheet, Pressable, Linking } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, Heart, Github, Mail } from 'lucide-react-native';
+import { ChevronLeft, Heart, Mail, Star, Bug, Lightbulb } from 'lucide-react-native';
 import { Text } from '@/components/Text';
 import { IconButton } from '@/components/IconButton';
 import { radii, spacing, useColors } from '@/theme';
 
 const VERSION = '1.0.0';
+const EMAIL = 'abhinesh.kr.tilak@gmail.com';
+
+const openMail = (subject: string, body?: string) => {
+  const params = [`subject=${encodeURIComponent(subject)}`];
+  if (body) params.push(`body=${encodeURIComponent(body)}`);
+  Linking.openURL(`mailto:${EMAIL}?${params.join('&')}`).catch(() => {});
+};
 
 export default function AboutScreen() {
   const router = useRouter();
@@ -81,6 +88,38 @@ export default function AboutScreen() {
             </Text>
           </Pressable>
 
+          {/* Contact / feedback */}
+          <View style={{ gap: spacing.sm }}>
+            <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase', marginLeft: spacing.xs }}>
+              Get in touch
+            </Text>
+
+            <ContactRow
+              icon={Mail}
+              label="Contact us"
+              description={EMAIL}
+              onPress={() => openMail('Beyond App — Hello')}
+            />
+            <ContactRow
+              icon={Star}
+              label="Leave a review"
+              description="Enjoying the app? A kind word helps a lot."
+              onPress={() => openMail('Beyond App — Review', 'Hi Abhinesh,\n\nI wanted to share some feedback about Beyond:\n\n')}
+            />
+            <ContactRow
+              icon={Bug}
+              label="Report a bug"
+              description="Something broken? Tell me exactly what happened."
+              onPress={() => openMail('Beyond App — Bug Report', 'Hi Abhinesh,\n\nI found a bug:\n\nWhat I did:\n\nWhat happened:\n\nWhat I expected:\n\nDevice / OS:\n')}
+            />
+            <ContactRow
+              icon={Lightbulb}
+              label="Request a feature"
+              description="Got an idea? I genuinely read every message."
+              onPress={() => openMail('Beyond App — Feature Request', 'Hi Abhinesh,\n\nI have an idea for Beyond:\n\n')}
+            />
+          </View>
+
           <View style={[styles.signature, { borderTopColor: colors.hairline }]}>
             <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
               Developed by
@@ -96,6 +135,40 @@ export default function AboutScreen() {
         </ScrollView>
       </SafeAreaView>
     </>
+  );
+}
+
+function ContactRow({
+  icon: IconCmp,
+  label,
+  description,
+  onPress,
+}: {
+  icon: any;
+  label: string;
+  description: string;
+  onPress: () => void;
+}) {
+  const colors = useColors();
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.contactRow,
+        { backgroundColor: colors.surface, borderColor: colors.hairline },
+        pressed && { opacity: 0.85 },
+      ]}
+    >
+      <View style={[styles.contactIcon, { backgroundColor: colors.accentSoft }]}>
+        <IconCmp size={16} color={colors.textSoft} strokeWidth={1.75} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text variant="bodyMedium">{label}</Text>
+        <Text variant="small" color={colors.textMuted} style={{ marginTop: 2 }}>
+          {description}
+        </Text>
+      </View>
+    </Pressable>
   );
 }
 
@@ -119,5 +192,20 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     borderTopWidth: 1,
     alignItems: 'center',
+  },
+  contactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.lg,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+  },
+  contactIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: radii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

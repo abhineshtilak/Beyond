@@ -62,17 +62,17 @@ export async function get(id: string): Promise<JournalEntry | null> {
   return row ? toEntry(row) : null;
 }
 
-export async function create(input: JournalInput): Promise<JournalEntry> {
+export async function create(input: JournalInput, date?: string): Promise<JournalEntry> {
   const db = await getDB();
   const id = uid();
   const now = Date.now();
-  const date = ymd();
+  const entryDate = date ?? ymd();
   await db.runAsync(
     `INSERT INTO journal_entries (id, entry_date, created_at, updated_at, body_html, content, attachments, prompt_key, mood, starred)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
     [
       id,
-      date,
+      entryDate,
       now,
       now,
       input.bodyHtml ?? null,

@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Fingerprint, ScanFace, Delete } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Text } from '@/components/Text';
-import { spacing, radii, fonts, useColors } from '@/theme';
+import { spacing, radii, fonts, useColors, useTheme } from '@/theme';
 import {
   authenticateWithBiometric,
   getBiometricType,
@@ -29,6 +29,7 @@ type Props = {
 
 export function LockScreen({ mode, onUnlock }: Props) {
   const colors = useColors();
+  const { resolved } = useTheme();
   const insets = useSafeAreaInsets();
 
   const [pin, setPin] = useState('');
@@ -113,7 +114,7 @@ export function LockScreen({ mode, onUnlock }: Props) {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.bg, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-      <StatusBar barStyle={colors.bg === '#1B1814' ? 'light-content' : 'dark-content'} />
+      <StatusBar barStyle={resolved === 'light' ? 'dark-content' : 'light-content'} />
 
       {/* App name */}
       <View style={styles.top}>

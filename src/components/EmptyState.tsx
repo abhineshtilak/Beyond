@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import type { LucideIcon } from 'lucide-react-native';
-import { colors, spacing, radii } from '@/theme';
+import { useColors, spacing, radii } from '@/theme';
 import { Text } from './Text';
 import { Icon } from './Icon';
 
@@ -12,10 +12,12 @@ type Props = {
   tint?: string;
 };
 
-export function EmptyState({ icon, title, message, tint = colors.accentSoft }: Props) {
+export function EmptyState({ icon, title, message, tint }: Props) {
+  const colors = useColors();
+  const iconBg = tint ?? colors.accentSoft;
   return (
     <View style={styles.wrap}>
-      <View style={[styles.iconWrap, { backgroundColor: tint }]}>
+      <View style={[styles.iconWrap, { backgroundColor: iconBg }]}>
         <Icon icon={icon} size={28} color={colors.text} />
       </View>
       <Text variant="h2" align="center">{title}</Text>

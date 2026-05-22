@@ -8,7 +8,7 @@ import { Text } from '@/components/Text';
 import { Chip } from '@/components/Chip';
 import { EmptyState } from '@/components/EmptyState';
 import { Fab } from '@/components/Fab';
-import { colors, spacing, radii } from '@/theme';
+import { spacing, radii, useColors } from '@/theme';
 import { prettyDate } from '@/lib/date';
 import { confirm } from '@/lib/confirm';
 import { useTasksStore, selectFiltered, TaskFilter } from '@/features/tasks/store';
@@ -23,6 +23,7 @@ const FILTERS: { key: TaskFilter; label: string }[] = [
 ];
 
 export default function TasksScreen() {
+  const colors = useColors();
   const tasks = useTasksStore((s) => s.tasks);
   const filter = useTasksStore((s) => s.filter);
   const setFilter = useTasksStore((s) => s.setFilter);
@@ -97,7 +98,11 @@ export default function TasksScreen() {
     if (selectionMode) {
       return (
         <View style={styles.selHeader}>
-          <Pressable onPress={exitSelection} hitSlop={10} style={styles.selIconBtn}>
+          <Pressable
+            onPress={exitSelection}
+            hitSlop={10}
+            style={[styles.selIconBtn, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
+          >
             <X size={20} color={colors.text} strokeWidth={2} />
           </Pressable>
           <View style={{ flex: 1 }}>
@@ -108,7 +113,11 @@ export default function TasksScreen() {
               {selected.size} task{selected.size === 1 ? '' : 's'}
             </Text>
           </View>
-          <Pressable onPress={selectAll} hitSlop={10} style={styles.selPill}>
+          <Pressable
+            onPress={selectAll}
+            hitSlop={10}
+            style={[styles.selPill, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
+          >
             <Text variant="smallMedium" color={colors.textSoft}>
               {selected.size === filtered.length && filtered.length > 0 ? 'NONE' : 'ALL'}
             </Text>
@@ -176,14 +185,31 @@ export default function TasksScreen() {
       />
 
       {selectionMode ? (
-        <View style={styles.actionBar} pointerEvents="box-none">
-          <Pressable onPress={handleBulkComplete} style={({ pressed }) => [styles.barBtn, pressed && { opacity: 0.8 }]}>
+        <View
+          style={[styles.actionBar, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
+          pointerEvents="box-none"
+        >
+          <Pressable
+            onPress={handleBulkComplete}
+            style={({ pressed }) => [
+              styles.barBtn,
+              { backgroundColor: colors.bg, borderColor: colors.hairline },
+              pressed && { opacity: 0.8 },
+            ]}
+          >
             <CheckSquare size={18} color={colors.text} strokeWidth={1.8} />
             <Text variant="smallMedium">Complete</Text>
           </Pressable>
-          <Pressable onPress={handleBulkDelete} style={({ pressed }) => [styles.barBtn, styles.barDanger, pressed && { opacity: 0.8 }]}>
-            <Trash2 size={18} color={colors.bg} strokeWidth={1.8} />
-            <Text variant="smallMedium" color={colors.bg}>Delete</Text>
+          <Pressable
+            onPress={handleBulkDelete}
+            style={({ pressed }) => [
+              styles.barBtn,
+              styles.barDanger,
+              pressed && { opacity: 0.8 },
+            ]}
+          >
+            <Trash2 size={18} color="#fff" strokeWidth={1.8} />
+            <Text variant="smallMedium" color="#fff">Delete</Text>
           </Pressable>
         </View>
       ) : (
@@ -213,9 +239,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: radii.pill,
-    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.hairline,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -223,9 +247,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: 6,
     borderRadius: radii.pill,
-    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.hairline,
   },
   actionBar: {
     position: 'absolute',
@@ -233,10 +255,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.md,
     padding: spacing.md,
-    backgroundColor: colors.surface,
     borderRadius: radii.xxl,
     borderWidth: 1,
-    borderColor: colors.hairline,
   },
   barBtn: {
     flex: 1,
@@ -246,9 +266,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingVertical: spacing.md,
     borderRadius: radii.pill,
-    backgroundColor: colors.bg,
     borderWidth: 1,
-    borderColor: colors.hairline,
   },
   barDanger: {
     backgroundColor: '#C97B6E',

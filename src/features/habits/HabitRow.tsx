@@ -1,11 +1,11 @@
 import React, { useRef } from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { Swipeable, RectButton } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { Trash2, Flame, Check } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Text } from '@/components/Text';
-import { colors, radii, spacing } from '@/theme';
+import { radii, spacing, useColors } from '@/theme';
 import { HABIT_ICONS } from './icons';
 import type { HabitWithStats } from './types';
 
@@ -17,6 +17,7 @@ type Props = {
 };
 
 export function HabitRow({ habit, onToggle, onPress, onDelete }: Props) {
+  const colors = useColors();
   const swipeRef = useRef<Swipeable>(null);
   const IconCmp = HABIT_ICONS[habit.icon];
   const checkScale = useSharedValue(habit.doneToday ? 1 : 0);
@@ -31,7 +32,9 @@ export function HabitRow({ habit, onToggle, onPress, onDelete }: Props) {
   }));
 
   const handle = () => {
-    Haptics.impactAsync(habit.doneToday ? Haptics.ImpactFeedbackStyle.Light : Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    Haptics.impactAsync(
+      habit.doneToday ? Haptics.ImpactFeedbackStyle.Light : Haptics.ImpactFeedbackStyle.Medium,
+    ).catch(() => {});
     onToggle();
   };
 
@@ -43,13 +46,20 @@ export function HabitRow({ habit, onToggle, onPress, onDelete }: Props) {
         onDelete();
       }}
     >
-      <Trash2 size={20} color={colors.bg} strokeWidth={2} />
+      <Trash2 size={20} color="#fff" strokeWidth={2} />
     </RectButton>
   );
 
   return (
     <Swipeable ref={swipeRef} renderRightActions={renderRightActions} overshootRight={false} friction={2}>
-      <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && { opacity: 0.9 }]}>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.row,
+          { backgroundColor: colors.surface, borderColor: colors.hairline },
+          pressed && { opacity: 0.9 },
+        ]}
+      >
         <View style={[styles.iconWrap, { backgroundColor: habit.color + '33' }]}>
           <IconCmp size={22} color={habit.color} strokeWidth={1.8} />
         </View>
@@ -59,7 +69,9 @@ export function HabitRow({ habit, onToggle, onPress, onDelete }: Props) {
             {habit.streak > 0 ? (
               <View style={styles.metaItem}>
                 <Flame size={12} color={colors.textSoft} strokeWidth={2} />
-                <Text variant="caption" color={colors.textSoft}>{habit.streak} DAY{habit.streak === 1 ? '' : 'S'}</Text>
+                <Text variant="caption" color={colors.textSoft}>
+                  {habit.streak} DAY{habit.streak === 1 ? '' : 'S'}
+                </Text>
               </View>
             ) : (
               <Text variant="caption" color={colors.textMuted}>NEW HABIT</Text>
@@ -68,7 +80,7 @@ export function HabitRow({ habit, onToggle, onPress, onDelete }: Props) {
               · {habit.successRate}% / {habit.targetDays}d
             </Text>
           </View>
-          <View style={styles.progressTrack}>
+          <View style={[styles.progressTrack, { backgroundColor: colors.hairline }]}>
             <View
               style={[
                 styles.progressFill,
@@ -78,9 +90,15 @@ export function HabitRow({ habit, onToggle, onPress, onDelete }: Props) {
           </View>
         </View>
         <Pressable onPress={handle} hitSlop={12}>
-          <View style={[styles.checkCircle, habit.doneToday && { backgroundColor: habit.color, borderColor: habit.color }]}>
+          <View
+            style={[
+              styles.checkCircle,
+              { borderColor: colors.hairline },
+              habit.doneToday && { backgroundColor: habit.color, borderColor: habit.color },
+            ]}
+          >
             <Animated.View style={checkStyle}>
-              <Check size={18} color={colors.bg} strokeWidth={3} />
+              <Check size={18} color="#fff" strokeWidth={3} />
             </Animated.View>
           </View>
         </Pressable>
@@ -94,8 +112,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.lg,
-    backgroundColor: colors.surface,
-    borderColor: colors.hairline,
     borderWidth: 1,
     borderRadius: radii.lg,
     padding: spacing.lg,
@@ -111,7 +127,6 @@ const styles = StyleSheet.create({
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   progressTrack: {
     height: 4,
-    backgroundColor: colors.hairline,
     borderRadius: 2,
     marginTop: 8,
     overflow: 'hidden',
@@ -125,7 +140,6 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     borderWidth: 1.5,
-    borderColor: colors.hairline,
     alignItems: 'center',
     justifyContent: 'center',
   },

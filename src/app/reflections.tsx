@@ -9,7 +9,7 @@ import { Text } from '@/components/Text';
 import { Card } from '@/components/Card';
 import { EmptyState } from '@/components/EmptyState';
 import { IconButton } from '@/components/IconButton';
-import { colors, spacing, radii } from '@/theme';
+import { spacing, radii, useColors } from '@/theme';
 import { confirm } from '@/lib/confirm';
 import * as repo from '@/features/diary/repo';
 import { MOOD_META } from '@/features/diary/types';
@@ -32,6 +32,7 @@ function dateLabel(d: string) {
 }
 
 export default function ReflectionsScreen() {
+  const colors = useColors();
   const router = useRouter();
   const [entries, setEntries] = useState<DiaryEntry[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -116,7 +117,11 @@ export default function ReflectionsScreen() {
                 {selected.size} reflection{selected.size === 1 ? '' : 's'}
               </Text>
             </View>
-            <Pressable onPress={selectAll} hitSlop={10} style={styles.selPill}>
+            <Pressable
+              onPress={selectAll}
+              hitSlop={10}
+              style={[styles.selPill, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
+            >
               <Text variant="smallMedium" color={colors.textSoft}>
                 {selected.size === entries.length && entries.length > 0 ? 'NONE' : 'ALL'}
               </Text>
@@ -169,7 +174,10 @@ export default function ReflectionsScreen() {
                     delayLongPress={300}
                     style={({ pressed }) => [
                       styles.card,
-                      isSel && styles.cardSelected,
+                      {
+                        backgroundColor: isSel ? colors.accentSoft : colors.surface,
+                        borderColor: isSel ? colors.text : colors.hairline,
+                      },
                       pressed && { opacity: 0.92 },
                     ]}
                   >
@@ -181,7 +189,13 @@ export default function ReflectionsScreen() {
                         </Text>
                       </View>
                       {selectionMode ? (
-                        <View style={[styles.selDot, isSel && styles.selDotOn]} />
+                        <View
+                          style={[
+                            styles.selDot,
+                            { borderColor: colors.hairline },
+                            isSel && { backgroundColor: colors.text, borderColor: colors.text },
+                          ]}
+                        />
                       ) : moodMeta ? (
                         <View style={[styles.moodChip, { backgroundColor: moodMeta.tint + '55' }]}>
                           <View style={[styles.moodDot, { backgroundColor: moodMeta.tint }]} />
@@ -191,7 +205,10 @@ export default function ReflectionsScreen() {
                     </View>
 
                     {isOpen && hasContent && !selectionMode ? (
-                      <Pressable onPress={() => openEntry(entry)} style={styles.body}>
+                      <Pressable
+                        onPress={() => openEntry(entry)}
+                        style={[styles.body, { borderTopColor: colors.hairline }]}
+                      >
                         {entry.summary ? (
                           <View style={styles.field}>
                             <Text variant="caption" color={colors.textMuted} style={styles.fieldLabel}>How was your day?</Text>
@@ -221,10 +238,10 @@ export default function ReflectionsScreen() {
         </ScrollView>
 
         {selectionMode ? (
-          <View style={styles.actionBar}>
+          <View style={[styles.actionBar, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
             <Pressable onPress={bulkDelete} style={({ pressed }) => [styles.barBtn, styles.barDanger, pressed && { opacity: 0.8 }]}>
-              <Trash2 size={18} color={colors.bg} strokeWidth={1.8} />
-              <Text variant="smallMedium" color={colors.bg}>Delete</Text>
+              <Trash2 size={18} color="#fff" strokeWidth={1.8} />
+              <Text variant="smallMedium" color="#fff">Delete</Text>
             </Pressable>
           </View>
         ) : null}
@@ -248,16 +265,10 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.huge,
   },
   card: {
-    backgroundColor: colors.surface,
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: colors.hairline,
     padding: spacing.lg,
     marginBottom: spacing.md,
-  },
-  cardSelected: {
-    borderColor: colors.text,
-    backgroundColor: colors.accentSoft,
   },
   cardHead: {
     flexDirection: 'row',
@@ -278,23 +289,18 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 11,
     borderWidth: 1.5,
-    borderColor: colors.hairline,
   },
-  selDotOn: { backgroundColor: colors.text, borderColor: colors.text },
   selPill: {
     paddingHorizontal: spacing.md,
     paddingVertical: 6,
     borderRadius: radii.pill,
-    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.hairline,
   },
   body: {
     marginTop: spacing.lg,
     gap: spacing.md,
     paddingTop: spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: colors.hairline,
   },
   field: { gap: 4 },
   fieldLabel: { textTransform: 'uppercase' },
@@ -302,10 +308,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: spacing.lg, right: spacing.lg, bottom: spacing.xl,
     padding: spacing.md,
-    backgroundColor: colors.surface,
     borderRadius: radii.xxl,
     borderWidth: 1,
-    borderColor: colors.hairline,
   },
   barBtn: {
     flexDirection: 'row',

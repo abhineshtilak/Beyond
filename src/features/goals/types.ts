@@ -66,26 +66,26 @@ export type GoalWithStats = Goal & {
 };
 
 export const GOAL_CATEGORY_META: Record<GoalCategory, { label: string; tint: string }> = {
-  health: { label: 'Health', tint: '#E4EADF' },
-  career: { label: 'Career', tint: '#DEE8EF' },
-  learning: { label: 'Learning', tint: '#EBE3F0' },
-  finance: { label: 'Finance', tint: '#F4ECD3' },
-  relationships: { label: 'Relationships', tint: '#F7E3D9' },
-  creative: { label: 'Creative', tint: '#F0DEDE' },
-  spiritual: { label: 'Spiritual', tint: '#EBE3F0' },
-  travel: { label: 'Travel', tint: '#DEE8EF' },
-  other: { label: 'Other', tint: '#F5F0E6' },
+  health:        { label: 'Health',        tint: '#E3E8DE' },   // sageSoft
+  career:        { label: 'Career',        tint: '#DCE5EA' },   // skySoft
+  learning:      { label: 'Learning',      tint: '#E7E0EC' },   // lavenderSoft
+  finance:       { label: 'Finance',       tint: '#EEE4C8' },   // butterSoft
+  relationships: { label: 'Relationships', tint: '#F1DDD4' },   // peachSoft
+  creative:      { label: 'Creative',      tint: '#EBDADA' },   // roseSoft
+  spiritual:     { label: 'Spiritual',     tint: '#E7E0EC' },   // lavenderSoft
+  travel:        { label: 'Travel',        tint: '#DCE5EA' },   // skySoft
+  other:         { label: 'Other',         tint: '#EFE7DC' },   // surfaceAlt
 };
 
 export const GOAL_PRIORITY_META: Record<GoalPriority, { label: string; tint: string }> = {
-  1: { label: 'Someday', tint: '#DEE8EF' },
-  2: { label: 'Soon', tint: '#F4ECD3' },
-  3: { label: 'Now', tint: '#F0DEDE' },
+  1: { label: 'Someday', tint: '#DCE5EA' },   // skySoft
+  2: { label: 'Soon',    tint: '#EEE4C8' },   // butterSoft
+  3: { label: 'Now',     tint: '#EBDADA' },   // roseSoft
 };
 
 export const GOAL_STATUS_META: Record<GoalStatus, { label: string; tint: string }> = {
-  active: { label: 'Active', tint: '#E4EADF' },
-  paused: { label: 'Paused', tint: '#F5F0E6' },
-  completed: { label: 'Completed', tint: '#DEE8EF' },
-  abandoned: { label: 'Let go', tint: '#F0DEDE' },
+  active:    { label: 'Active',    tint: '#E3E8DE' },   // sageSoft
+  paused:    { label: 'Paused',    tint: '#EFE7DC' },   // surfaceAlt
+  completed: { label: 'Completed', tint: '#DCE5EA' },   // skySoft
+  abandoned: { label: 'Let go',    tint: '#EBDADA' },   // roseSoft
 };

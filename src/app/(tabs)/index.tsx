@@ -29,7 +29,7 @@ import { IconButton } from '@/components/IconButton';
 import { ProgressRing } from '@/components/ProgressRing';
 import { RotatingGreeting } from '@/components/RotatingGreeting';
 import { PlaybackWaveform } from '@/components/Waveform';
-import { spacing, radii, useColors, shadows } from '@/theme';
+import { spacing, radii, useColors, useTheme, resolveTint, shadows } from '@/theme';
 import { SelectionDeleteBtn } from '@/components/SelectionDeleteBtn';
 import { ymd } from '@/lib/date';
 import { confirm } from '@/lib/confirm';
@@ -50,6 +50,7 @@ import { getOnThisDay, type OnThisDayEntry } from '@/lib/onThisDay';
 
 export default function HomeScreen() {
   const colors = useColors();
+  const { resolved } = useTheme();
   const router = useRouter();
 
   const refreshTasks = useTasksStore((s) => s.refresh);
@@ -205,7 +206,8 @@ export default function HomeScreen() {
             ) : null}
           </View>
           {goalsToShow.map((g) => {
-            const tint = g.category ? GOAL_CATEGORY_META[g.category].tint : colors.surfaceAlt;
+            const rawTint = g.category ? GOAL_CATEGORY_META[g.category].tint : null;
+            const tint = resolveTint(rawTint, resolved) ?? colors.surfaceAlt;
             const daysLabel =
               g.daysRemaining === null
                 ? 'No deadline'
@@ -353,10 +355,10 @@ export default function HomeScreen() {
         </Card>
       </View>
 
-      {/* Journal feed header (free-write) */}
+      {/* Journal feed header */}
       <View style={[styles.padded, { marginTop: spacing.sm }]}>
         <View style={styles.cardHeader}>
-          <Text variant="h2">Free write</Text>
+          <Text variant="h2">Journal</Text>
           <Pressable
             onPress={() => router.push('/journal')}
             hitSlop={8}
@@ -371,7 +373,7 @@ export default function HomeScreen() {
           </Pressable>
         </View>
         <Text variant="body" color={colors.textSoft} style={{ marginTop: spacing.xs }}>
-          Whenever a thought comes. Long-press an entry to select.
+          What's on your mind? Long-press an entry to select.
         </Text>
       </View>
     </View>
@@ -392,7 +394,7 @@ export default function HomeScreen() {
             </View>
             <Text variant="h2" align="center">A blank page</Text>
             <Text variant="body" color={colors.textMuted} align="center" style={{ maxWidth: 280 }}>
-              Tap "Write" to begin. There's no right way. A line, a paragraph, a voice note — all of it counts.
+              Tap "Write" to begin. There is no right way. A line, a paragraph, a voice note, all of it counts.
             </Text>
           </View>
         }

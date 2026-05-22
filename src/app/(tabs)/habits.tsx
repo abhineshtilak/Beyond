@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { View, FlatList, StyleSheet } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Sparkles } from 'lucide-react-native';
@@ -6,7 +6,7 @@ import { Screen } from '@/components/Screen';
 import { Text } from '@/components/Text';
 import { EmptyState } from '@/components/EmptyState';
 import { Fab } from '@/components/Fab';
-import { colors, spacing } from '@/theme';
+import { useColors, spacing } from '@/theme';
 import { prettyDate } from '@/lib/date';
 import { confirm } from '@/lib/confirm';
 import { useHabitsStore } from '@/features/habits/store';
@@ -14,6 +14,7 @@ import { HabitRow } from '@/features/habits/HabitRow';
 import { HabitEditor, HabitEditorRef } from '@/features/habits/HabitEditor';
 
 export default function HabitsScreen() {
+  const colors = useColors();
   const habits = useHabitsStore((s) => s.habits);
   const refresh = useHabitsStore((s) => s.refresh);
   const toggle = useHabitsStore((s) => s.toggleToday);
@@ -22,7 +23,7 @@ export default function HabitsScreen() {
   const router = useRouter();
 
   useFocusEffect(
-    React.useCallback(() => {
+    useCallback(() => {
       refresh();
     }, [refresh]),
   );
@@ -48,7 +49,9 @@ export default function HabitsScreen() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View style={styles.header}>
-            <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>{prettyDate()}</Text>
+            <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
+              {prettyDate()}
+            </Text>
             <Text variant="display" style={{ marginTop: 4 }}>Habits</Text>
             {habits.length > 0 ? (
               <Text variant="body" color={colors.textSoft} style={{ marginTop: spacing.xs }}>

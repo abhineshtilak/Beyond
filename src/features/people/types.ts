@@ -36,12 +36,12 @@ export type PersonInput = {
 };
 
 export const RELATION_META: Record<Relation, { label: string; tint: string }> = {
-  family: { label: 'Family', tint: '#F7E3D9' },
-  partner: { label: 'Partner', tint: '#F0DEDE' },
-  friend: { label: 'Friend', tint: '#E4EADF' },
-  mentor: { label: 'Mentor', tint: '#EBE3F0' },
-  colleague: { label: 'Colleague', tint: '#DEE8EF' },
-  other: { label: 'Other', tint: '#F5F0E6' },
+  family:    { label: 'Family',    tint: '#F1DDD4' },   // peachSoft
+  partner:   { label: 'Partner',   tint: '#EBDADA' },   // roseSoft
+  friend:    { label: 'Friend',    tint: '#E3E8DE' },   // sageSoft
+  mentor:    { label: 'Mentor',    tint: '#E7E0EC' },   // lavenderSoft
+  colleague: { label: 'Colleague', tint: '#DCE5EA' },   // skySoft
+  other:     { label: 'Other',     tint: '#EFE7DC' },   // surfaceAlt
 };
 
 export const RELATIONS: Relation[] = ['family', 'partner', 'friend', 'mentor', 'colleague', 'other'];

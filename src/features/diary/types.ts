@@ -15,10 +15,13 @@ export type DiaryEntry = {
 
 export type DiaryInput = Omit<DiaryEntry, 'id' | 'createdAt'>;
 
+// Vivid accent hues — used directly as dots/badges/indicators.
+// These intentionally stay the same across all themes (saturated mid-tones
+// read clearly on light, mid, and dark backgrounds alike).
 export const MOOD_META: Record<Mood, { label: string; tint: string }> = {
-  great: { label: 'Great', tint: '#A8B89F' },
-  good: { label: 'Good', tint: '#9EB7C9' },
-  ok: { label: 'Okay', tint: '#E8D095' },
-  low: { label: 'Low', tint: '#E8B4A0' },
-  bad: { label: 'Tough', tint: '#D8A4A4' },
+  great: { label: 'Great', tint: '#A8B89F' },   // sage
+  good:  { label: 'Good',  tint: '#9EB7C9' },   // sky
+  ok:    { label: 'Okay',  tint: '#E8D095' },   // butter
+  low:   { label: 'Low',   tint: '#E8B4A0' },   // peach
+  bad:   { label: 'Tough', tint: '#D8A4A4' },   // rose
 };

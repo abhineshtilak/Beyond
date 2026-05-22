@@ -21,11 +21,11 @@ export type RealizationInput = {
 };
 
 export const REALIZATION_META: Record<RealizationKind, { label: string; tint: string; description: string }> = {
-  realization: { label: 'Realization', tint: '#E4EADF', description: 'Something you suddenly saw clearly.' },
-  lesson: { label: 'Lesson', tint: '#DEE8EF', description: 'Knowledge earned from doing.' },
-  mistake: { label: 'Mistake', tint: '#F7E3D9', description: 'A misstep worth remembering.' },
-  quote: { label: 'Quote', tint: '#EBE3F0', description: 'Words from someone — or yourself.' },
-  observation: { label: 'Observation', tint: '#F4ECD3', description: 'Something you noticed about life.' },
+  realization: { label: 'Realization', tint: '#E3E8DE', description: 'Something you suddenly saw clearly.' },   // sageSoft
+  lesson:      { label: 'Lesson',      tint: '#DCE5EA', description: 'Knowledge earned from doing.' },          // skySoft
+  mistake:     { label: 'Mistake',     tint: '#F1DDD4', description: 'A misstep worth remembering.' },          // peachSoft
+  quote:       { label: 'Quote',       tint: '#E7E0EC', description: 'Words from someone — or yourself.' },     // lavenderSoft
+  observation: { label: 'Observation', tint: '#EEE4C8', description: 'Something you noticed about life.' },     // butterSoft
 };
 
 export const REALIZATION_KINDS: RealizationKind[] = ['realization', 'lesson', 'mistake', 'quote', 'observation'];

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { colors, spacing } from '@/theme';
+import { useColors, spacing } from '@/theme';
 import { Text } from './Text';
 
 type Props = {
@@ -10,11 +10,16 @@ type Props = {
 };
 
 export function SectionHeader({ title, subtitle, action }: Props) {
+  const colors = useColors();
   return (
     <View style={styles.row}>
       <View style={{ flex: 1 }}>
         <Text variant="h3">{title}</Text>
-        {subtitle ? <Text variant="small" color={colors.textMuted} style={{ marginTop: 2 }}>{subtitle}</Text> : null}
+        {subtitle ? (
+          <Text variant="small" color={colors.textMuted} style={{ marginTop: 2 }}>
+            {subtitle}
+          </Text>
+        ) : null}
       </View>
       {action}
     </View>
