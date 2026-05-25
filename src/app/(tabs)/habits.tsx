@@ -12,6 +12,8 @@ import { confirm } from '@/lib/confirm';
 import { useHabitsStore } from '@/features/habits/store';
 import { HabitRow } from '@/features/habits/HabitRow';
 import { HabitEditor, HabitEditorRef } from '@/features/habits/HabitEditor';
+import { StreakSaverSheet, StreakSaverSheetRef } from '@/features/habits/StreakSaverSheet';
+import { isStreakAtRisk } from '@/features/habits/repo';
 
 export default function HabitsScreen() {
   const colors = useColors();
@@ -20,11 +22,28 @@ export default function HabitsScreen() {
   const toggle = useHabitsStore((s) => s.toggleToday);
   const remove = useHabitsStore((s) => s.remove);
   const editorRef = useRef<HabitEditorRef>(null);
+  const streakSaverRef = useRef<StreakSaverSheetRef>(null);
   const router = useRouter();
 
   useFocusEffect(
     useCallback(() => {
-      refresh();
+      refresh().then(() => {
+        // Read fresh state after refresh to avoid stale closure
+        const fresh = useHabitsStore.getState().habits;
+        const atRisk = fresh.filter((h) => h.streak > 0 && isStreakAtRisk(h.doneDates));
+        if (atRisk.length > 0) {
+          const first = atRisk[0];
+          setTimeout(() => {
+            streakSaverRef.current?.present(
+              first.id,
+              first.title,
+              first.streak,
+              first.streakCredits,
+              () => refresh(),
+            );
+          }, 600);
+        }
+      });
     }, [refresh]),
   );
 
@@ -80,6 +99,7 @@ export default function HabitsScreen() {
       />
       <Fab onPress={() => editorRef.current?.present()} />
       <HabitEditor ref={editorRef} />
+      <StreakSaverSheet ref={streakSaverRef} />
     </Screen>
   );
 }

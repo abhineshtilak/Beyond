@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
-  TextInput,
   Pressable,
   StyleSheet,
   ScrollView,
@@ -9,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Linking,
 } from 'react-native';
+import { StableTextInput } from '@/components/StableTextInput';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -214,8 +214,9 @@ export default function LearnScreen() {
             contentContainerStyle={[styles.body, { paddingBottom: 80 + insets.bottom }]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            onScrollBeginDrag={Keyboard.dismiss}
           >
-            <TextInput
+            <StableTextInput
               value={title}
               onChangeText={setTitle}
               placeholder="What you're learning"
@@ -223,7 +224,7 @@ export default function LearnScreen() {
               style={[{ fontFamily: fonts.serifBold, fontSize: 32, letterSpacing: -0.5 }, styles.titleInput]}
               multiline
             />
-            <TextInput
+            <StableTextInput
               value={category}
               onChangeText={setCategory}
               placeholder="Category (e.g. Programming, Music)"
@@ -356,14 +357,14 @@ export default function LearnScreen() {
                       />
                     ))}
                   </View>
-                  <TextInput
+                  <StableTextInput
                     value={resTitle}
                     onChangeText={setResTitle}
                     placeholder="Title (e.g. Atomic Habits)"
                     placeholderTextColor={colors.textFaint}
                     style={[{ fontFamily: fonts.sans, fontSize: 15 }, styles.resInput]}
                   />
-                  <TextInput
+                  <StableTextInput
                     value={resUrl}
                     onChangeText={setResUrl}
                     placeholder="Link (optional)"
@@ -403,7 +404,7 @@ export default function LearnScreen() {
 
             {/* Notes */}
             <Section label="Notes">
-              <TextInput
+              <StableTextInput
                 value={notes}
                 onChangeText={setNotes}
                 placeholder="Key insights, takeaways, references."

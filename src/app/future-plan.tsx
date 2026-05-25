@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
-  TextInput,
   Pressable,
   Image,
   StyleSheet,
@@ -10,6 +9,7 @@ import {
   Alert,
   KeyboardAvoidingView,
 } from 'react-native';
+import { StableTextInput } from '@/components/StableTextInput';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -141,9 +141,12 @@ export default function FuturePlanScreen() {
           </Pressable>
         </View>
 
+        <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <ScrollView
           contentContainerStyle={{ paddingBottom: 80 + insets.bottom }}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          onScrollBeginDrag={Keyboard.dismiss}
         >
           {/* HERO image — just the visual, with its own X overlay */}
           {imageUri ? (
@@ -177,13 +180,12 @@ export default function FuturePlanScreen() {
             </Pressable>
           )}
 
-          <KeyboardAvoidingView behavior="padding">
-            <View style={styles.body}>
+          <View style={styles.body}>
               <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
                 {idRef.current ? 'Plan' : 'Someday'} · {saving ? 'Saving' : dirty ? 'Unsaved' : 'Saved'}
               </Text>
 
-              <TextInput
+              <StableTextInput
                 value={title}
                 onChangeText={setTitle}
                 placeholder="What's the plan?"
@@ -222,7 +224,7 @@ export default function FuturePlanScreen() {
                 <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
                   Notes
                 </Text>
-                <TextInput
+                <StableTextInput
                   value={description}
                   onChangeText={setDescription}
                   placeholder="Anything you want to remember about this."
@@ -231,9 +233,9 @@ export default function FuturePlanScreen() {
                   style={[{ fontFamily: fonts.sans, fontSize: 15 }, styles.textArea, { color: colors.text, backgroundColor: colors.surface, borderColor: colors.hairline }]}
                 />
               </View>
-            </View>
-          </KeyboardAvoidingView>
+          </View>
         </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </>
   );

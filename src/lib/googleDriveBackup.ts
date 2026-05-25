@@ -128,7 +128,7 @@ export async function uploadBackupToDrive(payload: BackupFile): Promise<DriveBac
     mimeType: 'application/json',
     parents: ['appDataFolder'],
     appProperties: {
-      app: 'LifeOS',
+      app: 'Beyond',
       backupVersion: String(payload.version),
     },
   };

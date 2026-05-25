@@ -7,6 +7,9 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Keyboard,
+  Platform,
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import {
@@ -34,8 +37,8 @@ import type { Goal } from '@/features/goals/types';
 import { MilestonesSection } from '@/features/goals/MilestonesSection';
 import { LinkedItemsSection } from '@/features/goals/LinkedItemsSection';
 import { InspirationSection } from '@/features/goals/InspirationSection';
-import { EditFieldSheet, EditFieldSheetRef } from '@/features/goals/EditFieldSheet';
 import { GoalBasicsEditor, GoalBasicsEditorRef } from '@/features/goals/GoalBasicsEditor';
+import { ProgressSheet, ProgressSheetRef } from '@/features/goals/ProgressSheet';
 
 export default function GoalDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -48,8 +51,14 @@ export default function GoalDetailScreen() {
   const [goal, setGoal] = useState<Goal | null>(null);
   const [loading, setLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0);
-  const editFieldRef = useRef<EditFieldSheetRef>(null);
   const basicsRef = useRef<GoalBasicsEditorRef>(null);
+  const progressSheetRef = useRef<ProgressSheetRef>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  // Y of the sections wrapper relative to the ScrollView; lets us turn
+  // section-relative onLayout y values into absolute scroll targets.
+  const sectionsBaseRef = useRef(0);
+  const milestoneOffsetRef = useRef(0);
+  const sectionOffsetsRef = useRef<Record<string, number>>({});
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -70,16 +79,19 @@ export default function GoalDetailScreen() {
     bump();
   }, [goal, refreshList]);
 
-  const editText = (label: string, key: keyof Goal, placeholder: string, sectionLabel: string) => {
-    editFieldRef.current?.present({
-      title: `Edit ${label}`,
-      label: sectionLabel,
-      placeholder,
-      initialValue: (goal?.[key] as string | null) ?? '',
-      onSave: async (value) => {
-        await update({ [key]: value } as any);
-      },
-    });
+  const scrollToSection = (key: string) => {
+    // On iOS, KAV "padding" already animates the view up so we wait for it to
+    // finish (~300ms) before scrolling. On Android, KAV is disabled; the system
+    // handles the keyboard natively so we can scroll immediately after a short
+    // settle delay (100ms is enough for the keyboard to start rising).
+    const delay = Platform.OS === 'ios' ? 320 : 100;
+    setTimeout(() => {
+      const localY = sectionOffsetsRef.current[key];
+      if (typeof localY === 'number') {
+        const absoluteY = sectionsBaseRef.current + localY;
+        scrollRef.current?.scrollTo({ y: Math.max(0, absoluteY - 12), animated: true });
+      }
+    }, delay);
   };
 
   const pickHero = async () => {
@@ -157,10 +169,16 @@ export default function GoalDetailScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1, backgroundColor: colors.bg }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          onScrollBeginDrag={Keyboard.dismiss}
         >
           {/* HERO */}
           <View style={[styles.hero, { backgroundColor: tint }]}>
@@ -211,18 +229,28 @@ export default function GoalDetailScreen() {
           </View>
 
           {/* PROGRESS BLOCK */}
-          <View style={styles.progressBlock}>
+          <Pressable
+            style={({ pressed }) => [styles.progressBlock, pressed && { opacity: 0.75 }]}
+            onPress={() => {
+              progressSheetRef.current?.present(
+                goal.manualProgress ?? goal.progress ?? 0,
+                async (val) => {
+                  await update({ manualProgress: val });
+                },
+              );
+            }}
+          >
             <ProgressRing progress={goal.progress} size={92} strokeWidth={7} label="%" />
             <View style={{ flex: 1, gap: 4 }}>
               <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
-                Progress
+                Progress · tap to set
               </Text>
               <Text variant="h2">{milestonesLabel}</Text>
               <Text variant="body" color={colors.textSoft}>
                 {goal.targetDate ? `${format(parseISO(goal.targetDate), 'MMM d, yyyy')} · ${daysLabel}` : daysLabel}
               </Text>
             </View>
-          </View>
+          </Pressable>
 
           {/* QUICK ACTIONS */}
           <View style={styles.quickActions}>
@@ -247,53 +275,88 @@ export default function GoalDetailScreen() {
           </View>
 
           {/* SECTIONS */}
-          <View style={styles.sections}>
-            <EditableSection
-              label="Why does this matter"
-              value={goal.why}
-              placeholder="Why this, and why now? The reason has to be larger than your resistance."
-              onPress={() => editText('your why', 'why', 'The reason behind this goal...', 'Your why')}
-              tint={colors.surfaceAlt}
-              serif
-            />
-            <EditableSection
-              label="How it'll feel"
-              value={goal.feeling}
-              placeholder="When you reach this — what does that day look and feel like?"
-              onPress={() => editText('the feeling', 'feeling', 'The feeling of having reached it...', 'How it will feel')}
-            />
+          <View
+            style={styles.sections}
+            onLayout={(e) => { sectionsBaseRef.current = e.nativeEvent.layout.y; }}
+          >
+            <View onLayout={(e) => { sectionOffsetsRef.current.why = e.nativeEvent.layout.y; }}>
+              <EditableSection
+                label="Why does this matter"
+                value={goal.why}
+                placeholder="Why this, and why now? The reason has to be larger than your resistance."
+                onSave={(v) => update({ why: v })}
+                onEditStart={() => scrollToSection('why')}
+                tint={colors.surfaceAlt}
+                serif
+              />
+            </View>
+            <View onLayout={(e) => { sectionOffsetsRef.current.feeling = e.nativeEvent.layout.y; }}>
+              <EditableSection
+                label="How it'll feel"
+                value={goal.feeling}
+                placeholder="When you reach this — what does that day look and feel like?"
+                onSave={(v) => update({ feeling: v })}
+                onEditStart={() => scrollToSection('feeling')}
+              />
+            </View>
 
-            <MilestonesSection key={`ms-${reloadKey}`} goalId={goal.id} onProgressChange={load} />
+            <View
+              onLayout={(e) => { milestoneOffsetRef.current = e.nativeEvent.layout.y; }}
+            >
+              <MilestonesSection
+                key={`ms-${reloadKey}`}
+                goalId={goal.id}
+                onProgressChange={load}
+                onInputFocus={() => {
+                  const delay = Platform.OS === 'ios' ? 320 : 100;
+                  setTimeout(() => {
+                    scrollRef.current?.scrollTo({
+                      y: Math.max(0, sectionsBaseRef.current + milestoneOffsetRef.current - 12),
+                      animated: true,
+                    });
+                  }, delay);
+                }}
+              />
+            </View>
 
-            <EditableSection
-              label="Action plan"
-              value={goal.procedure}
-              placeholder="The proven procedure. Daily, weekly. What works?"
-              onPress={() => editText('the plan', 'procedure', 'The roadmap, the moves, the cadence...', 'Action plan')}
-            />
+            <View onLayout={(e) => { sectionOffsetsRef.current.procedure = e.nativeEvent.layout.y; }}>
+              <EditableSection
+                label="Action plan"
+                value={goal.procedure}
+                placeholder="The proven procedure. Daily, weekly. What works?"
+                onSave={(v) => update({ procedure: v })}
+                onEditStart={() => scrollToSection('procedure')}
+              />
+            </View>
 
             <LinkedItemsSection key={`li-${reloadKey}`} goalId={goal.id} />
 
-            <EditableSection
-              label="Where I am now"
-              value={goal.currentPosition}
-              placeholder="The honest baseline. What's true today?"
-              onPress={() => editText('current position', 'currentPosition', 'Where you stand right now...', 'Current position')}
-            />
-            <EditableSection
-              label="What's in the way"
-              value={goal.problems}
-              placeholder="Obstacles, fears, missing pieces. Name them."
-              onPress={() => editText('the obstacles', 'problems', 'What stands between you and this...', 'Obstacles')}
-            />
+            <View onLayout={(e) => { sectionOffsetsRef.current.currentPosition = e.nativeEvent.layout.y; }}>
+              <EditableSection
+                label="Where I am now"
+                value={goal.currentPosition}
+                placeholder="The honest baseline. What's true today?"
+                onSave={(v) => update({ currentPosition: v })}
+                onEditStart={() => scrollToSection('currentPosition')}
+              />
+            </View>
+            <View onLayout={(e) => { sectionOffsetsRef.current.problems = e.nativeEvent.layout.y; }}>
+              <EditableSection
+                label="What's in the way"
+                value={goal.problems}
+                placeholder="Obstacles, fears, missing pieces. Name them."
+                onSave={(v) => update({ problems: v })}
+                onEditStart={() => scrollToSection('problems')}
+              />
+            </View>
 
             <InspirationSection key={`ins-${reloadKey}`} goalId={goal.id} />
           </View>
         </ScrollView>
 
-        <EditFieldSheet ref={editFieldRef} />
         <GoalBasicsEditor ref={basicsRef} onSaved={() => { load(); refreshList(); }} />
-      </View>
+        <ProgressSheet ref={progressSheetRef} />
+      </KeyboardAvoidingView>
     </>
   );
 }

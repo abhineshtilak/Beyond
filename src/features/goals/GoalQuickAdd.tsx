@@ -4,6 +4,7 @@ import { format, parseISO } from 'date-fns';
 import { Calendar as CalIcon, Flag, Tag } from 'lucide-react-native';
 import { Sheet, SheetRef } from '@/components/Sheet';
 import { SheetInput as Input } from '@/components/SheetInput';
+import { useInputRef } from '@/lib/useInputRef';
 import { Button } from '@/components/Button';
 import { Text } from '@/components/Text';
 import { Chip } from '@/components/Chip';
@@ -26,7 +27,13 @@ export const GoalQuickAdd = forwardRef<GoalQuickAddRef>(function GoalQuickAdd(_,
   const sheetRef = useRef<SheetRef>(null);
   const create = useGoalsStore((s) => s.create);
 
-  const [title, setTitle] = useState('');
+  const {
+    valueRef: titleRef,
+    snapshot: titleSnapshot,
+    hasContent: hasTitle,
+    onChangeText: onTitleChange,
+    reset: resetTitle,
+  } = useInputRef('');
   const [category, setCategory] = useState<GoalCategory | null>(null);
   const [targetDate, setTargetDate] = useState<string | null>(null);
   const [priority, setPriority] = useState<GoalPriority>(2);
@@ -35,12 +42,12 @@ export const GoalQuickAdd = forwardRef<GoalQuickAddRef>(function GoalQuickAdd(_,
   const onCreatedRef = useRef<((id: string) => void) | null>(null);
 
   const reset = useCallback(() => {
-    setTitle('');
+    resetTitle('');
     setCategory(null);
     setTargetDate(null);
     setPriority(2);
     setShowCalendar(false);
-  }, []);
+  }, [resetTitle]);
 
   useImperativeHandle(ref, () => ({
     present: (onCreated) => {
@@ -52,10 +59,10 @@ export const GoalQuickAdd = forwardRef<GoalQuickAddRef>(function GoalQuickAdd(_,
   }));
 
   const handleSave = async () => {
-    if (!title.trim()) return;
+    if (!titleRef.current.trim()) return;
     setSaving(true);
     try {
-      const id = await create({ title: title.trim(), category, targetDate, priority });
+      const id = await create({ title: titleRef.current.trim(), category, targetDate, priority });
       sheetRef.current?.dismiss();
       onCreatedRef.current?.(id);
     } finally {
@@ -69,13 +76,13 @@ export const GoalQuickAdd = forwardRef<GoalQuickAddRef>(function GoalQuickAdd(_,
       title="New goal"
       subtitle="Capture the seed now. You can add depth later."
       snapPoints={['80%']}
-      footer={<Button label="Create goal" onPress={handleSave} loading={saving} disabled={!title.trim()} />}
+      footer={<Button label="Create goal" onPress={handleSave} loading={saving} disabled={!hasTitle} />}
     >
       <Input
         label="What do you want?"
         placeholder="Be specific. e.g. Run a half marathon."
-        value={title}
-        onChangeText={setTitle}
+        value={titleSnapshot}
+        onChangeText={onTitleChange}
         autoFocus
       />
 

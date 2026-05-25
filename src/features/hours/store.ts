@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import * as repo from './repo';
-import type { HourCategory, HourLog } from './types';
+import type { HourLog } from './types';
 
 type State = {
   date: string;
@@ -8,7 +8,7 @@ type State = {
   loading: boolean;
   setDate: (date: string) => void;
   refresh: () => Promise<void>;
-  upsert: (hour: number, activity: string, category: HourCategory | null) => Promise<void>;
+  upsert: (hour: number, activity: string, category: string | null) => Promise<void>;
   clear: (hour: number) => Promise<void>;
 };
 

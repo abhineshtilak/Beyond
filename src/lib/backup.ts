@@ -65,7 +65,7 @@ type TableName = (typeof TABLES)[number];
 type DbRow = Record<string, string | number | null>;
 
 export type BackupFile = {
-  app: 'LifeOS';
+  app: 'Beyond' | 'LifeOS'; // 'LifeOS' kept for backward compat with old backups
   version: number;
   createdAt: string;
   tables: Record<TableName, DbRow[]>;
@@ -156,7 +156,7 @@ export async function createBackup(): Promise<{ payload: BackupFile; summary: Ba
   const createdAt = new Date().toISOString();
   return {
     payload: {
-      app: 'LifeOS',
+      app: 'Beyond',
       version: BACKUP_VERSION,
       createdAt,
       tables,
@@ -282,7 +282,7 @@ async function tableColumns(table: TableName): Promise<Set<string>> {
 }
 
 function validateBackup(payload: BackupFile) {
-  if (!payload || payload.app !== 'LifeOS' || payload.version !== BACKUP_VERSION || !payload.tables) {
+  if (!payload || (payload.app !== 'Beyond' && payload.app !== 'LifeOS') || payload.version !== BACKUP_VERSION || !payload.tables) {
     throw new Error('This backup file is not compatible with this version of the app.');
   }
 }

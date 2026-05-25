@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
-  TextInput,
   Pressable,
   Image,
   StyleSheet,
@@ -10,6 +9,7 @@ import {
   Alert,
   KeyboardAvoidingView,
 } from 'react-native';
+import { StableTextInput } from '@/components/StableTextInput';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -17,11 +17,12 @@ import {
   ChevronLeft,
   Check,
   Camera,
-  Heart,
   Bell,
   Calendar as CalIcon,
   Cake,
   Sparkle,
+  MessageCircle,
+  Star,
 } from 'lucide-react-native';
 import { format, parseISO } from 'date-fns';
 import { Text } from '@/components/Text';
@@ -32,8 +33,10 @@ import { fonts, radii, spacing, useColors } from '@/theme';
 import { confirm } from '@/lib/confirm';
 import { ymd } from '@/lib/date';
 import * as repo from '@/features/people/repo';
+import * as interactionsRepo from '@/features/people/interactions';
 import { usePeopleStore } from '@/features/people/store';
-import { RELATION_META, RELATIONS, type Relation } from '@/features/people/types';
+import { RELATION_META, RELATIONS, MOOD_META, type Relation, type PersonInteraction } from '@/features/people/types';
+import { InteractionSheet, InteractionSheetRef } from '@/features/people/InteractionSheet';
 
 const FREQ_PRESETS = [
   { label: 'Weekly', days: 7 },
@@ -67,13 +70,28 @@ export default function PersonScreen() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [showBirthdayCal, setShowBirthdayCal] = useState(false);
   const [showAnniversaryCal, setShowAnniversaryCal] = useState(false);
+  // Deep relationship fields
+  const [nextTopics, setNextTopics] = useState('');
+  const [promises, setPromises] = useState('');
+  const [relationshipScore, setRelationshipScore] = useState<number | null>(null);
+  const [howWeMet, setHowWeMet] = useState('');
+  const [sharedMemories, setSharedMemories] = useState('');
+  // Interactions
+  const [interactions, setInteractions] = useState<PersonInteraction[]>([]);
+  const interactionSheetRef = useRef<InteractionSheetRef>(null);
 
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const lastSavedRef = useRef<string>('');
 
   const snapshot = () =>
-    [name, relation, photoUri, notes, theirGoals, theirStruggles, mySupport, contributions, futurePlans, lastContactDate, contactReminderDays, birthday, anniversary].join('§');
+    [name, relation, photoUri, notes, theirGoals, theirStruggles, mySupport, contributions, futurePlans, lastContactDate, contactReminderDays, birthday, anniversary, nextTopics, promises, relationshipScore, howWeMet, sharedMemories].join('§');
+
+  const loadInteractions = useCallback(async () => {
+    if (!idRef.current) return;
+    const list = await interactionsRepo.listForPerson(idRef.current, 5);
+    setInteractions(list);
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -93,7 +111,16 @@ export default function PersonScreen() {
         setContactReminderDays(p.contactReminderDays);
         setBirthday(p.birthday);
         setAnniversary(p.anniversary);
-        lastSavedRef.current = [p.name, p.relation, p.photoUri, p.notes, p.theirGoals, p.theirStruggles, p.mySupport, p.contributions, p.futurePlans, p.lastContactDate, p.contactReminderDays, p.birthday, p.anniversary].join('§');
+        setNextTopics(p.nextTopics ?? '');
+        setPromises(p.promises ?? '');
+        setRelationshipScore(p.relationshipScore);
+        setHowWeMet(p.howWeMet ?? '');
+        setSharedMemories(p.sharedMemories ?? '');
+        lastSavedRef.current = [p.name, p.relation, p.photoUri, p.notes, p.theirGoals, p.theirStruggles, p.mySupport, p.contributions, p.futurePlans, p.lastContactDate, p.contactReminderDays, p.birthday, p.anniversary, p.nextTopics, p.promises, p.relationshipScore, p.howWeMet, p.sharedMemories].join('§');
+      }
+      if (params.id) {
+        const list = await interactionsRepo.listForPerson(params.id, 5);
+        setInteractions(list);
       }
     })();
   }, [params.id]);
@@ -117,6 +144,11 @@ export default function PersonScreen() {
         contactReminderDays,
         birthday,
         anniversary,
+        nextTopics: nextTopics.trim() || null,
+        promises: promises.trim() || null,
+        relationshipScore,
+        howWeMet: howWeMet.trim() || null,
+        sharedMemories: sharedMemories.trim() || null,
       };
       if (idRef.current) {
         await repo.update(idRef.current, input);
@@ -131,14 +163,14 @@ export default function PersonScreen() {
     } finally {
       if (!silent) setSaving(false);
     }
-  }, [name, relation, photoUri, notes, theirGoals, theirStruggles, mySupport, contributions, futurePlans, lastContactDate, contactReminderDays, birthday, anniversary, refreshList]);
+  }, [name, relation, photoUri, notes, theirGoals, theirStruggles, mySupport, contributions, futurePlans, lastContactDate, contactReminderDays, birthday, anniversary, nextTopics, promises, relationshipScore, howWeMet, sharedMemories, refreshList]);
 
   // Auto-save
   useEffect(() => {
     if (!name.trim()) return;
     const t = setTimeout(() => { save(true); }, 1500);
     return () => clearTimeout(t);
-  }, [name, relation, photoUri, notes, theirGoals, theirStruggles, mySupport, contributions, futurePlans, lastContactDate, contactReminderDays, birthday, anniversary, save]);
+  }, [name, relation, photoUri, notes, theirGoals, theirStruggles, mySupport, contributions, futurePlans, lastContactDate, contactReminderDays, birthday, anniversary, nextTopics, promises, relationshipScore, howWeMet, sharedMemories, save]);
 
   const handleBack = async () => {
     Keyboard.dismiss();
@@ -166,8 +198,11 @@ export default function PersonScreen() {
     if (!res.canceled && res.assets?.[0]) setPhotoUri(res.assets[0].uri);
   };
 
-  const markContactedToday = () => {
+  const markContactedToday = async () => {
     setLastContactDate(ymd());
+    if (idRef.current) {
+      await repo.markContacted(idRef.current);
+    }
   };
 
   const handleDelete = async () => {
@@ -224,6 +259,7 @@ export default function PersonScreen() {
             contentContainerStyle={[styles.body, { paddingBottom: 80 + insets.bottom }]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            onScrollBeginDrag={Keyboard.dismiss}
           >
             {/* Photo + name */}
             <View style={styles.headerCard}>
@@ -237,7 +273,7 @@ export default function PersonScreen() {
                   </>
                 )}
               </Pressable>
-              <TextInput
+              <StableTextInput
                 value={name}
                 onChangeText={setName}
                 placeholder="Their name"
@@ -346,6 +382,81 @@ export default function PersonScreen() {
               ) : null}
             </Section>
 
+            {/* Log interaction button */}
+            {idRef.current ? (
+              <Pressable
+                onPress={() => interactionSheetRef.current?.present(idRef.current!, async () => {
+                  setLastContactDate(ymd());
+                  await loadInteractions();
+                })}
+                style={({ pressed }) => [
+                  styles.logBtn,
+                  { backgroundColor: colors.text, opacity: pressed ? 0.8 : 1 },
+                ]}
+              >
+                <MessageCircle size={16} color={colors.bg} strokeWidth={1.8} />
+                <Text variant="smallMedium" color={colors.bg}>Log today's interaction</Text>
+              </Pressable>
+            ) : null}
+
+            {/* Recent interactions */}
+            {interactions.length > 0 ? (
+              <Section label="Recent interactions" icon={MessageCircle}>
+                <View style={styles.interactionList}>
+                  {interactions.map((ix) => {
+                    const moodMeta = ix.mood ? MOOD_META[ix.mood] : null;
+                    return (
+                      <View key={ix.id} style={[styles.interactionRow, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                        <View style={{ flex: 1, gap: 2 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            {moodMeta ? <Text style={{ fontSize: 14 }}>{moodMeta.emoji}</Text> : null}
+                            <Text variant="smallMedium" color={colors.text}>
+                              {format(parseISO(ix.logDate), 'MMM d, yyyy')}
+                            </Text>
+                          </View>
+                          {ix.notes ? (
+                            <Text variant="small" color={colors.textSoft} numberOfLines={2}>{ix.notes}</Text>
+                          ) : null}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </Section>
+            ) : null}
+
+            {/* Relationship health */}
+            <Section label="Relationship health" icon={Star}>
+              <View style={styles.chipRow}>
+                {[1, 2, 3, 4, 5].map((score) => {
+                  const selected = relationshipScore === score;
+                  const scoreColors = ['#B97A6B', '#C4B89A', '#A8B89F', '#7FA682', '#5E8F6A'];
+                  return (
+                    <Pressable
+                      key={score}
+                      onPress={() => setRelationshipScore(relationshipScore === score ? null : score)}
+                      style={({ pressed }) => [
+                        styles.scoreChip,
+                        {
+                          backgroundColor: selected ? scoreColors[score - 1] : colors.surface,
+                          borderColor: selected ? 'transparent' : colors.hairline,
+                          opacity: pressed ? 0.7 : 1,
+                        },
+                      ]}
+                    >
+                      <Text variant="smallMedium" color={selected ? '#fff' : colors.textSoft}>
+                        {'★'.repeat(score)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </Section>
+
+            <LongInput label="Next time we talk about..." value={nextTopics} onChangeText={setNextTopics} placeholder="Topics to bring up, questions to ask." />
+            <LongInput label="Promises to them" value={promises} onChangeText={setPromises} placeholder="Things you've committed to doing." />
+            <LongInput label="How we met" value={howWeMet} onChangeText={setHowWeMet} placeholder="The story of how this person came into your life." />
+            <LongInput label="Shared memories" value={sharedMemories} onChangeText={setSharedMemories} placeholder="Moments worth keeping. Adventures, laughs, firsts." />
             <LongInput label="What they're working toward" value={theirGoals} onChangeText={setTheirGoals} placeholder="Their goals, ambitions, dreams." />
             <LongInput label="What they're going through" value={theirStruggles} onChangeText={setTheirStruggles} placeholder="Challenges, fears, weights they carry." />
             <LongInput label="How I support them" value={mySupport} onChangeText={setMySupport} placeholder="What does showing up for them look like?" />
@@ -354,6 +465,7 @@ export default function PersonScreen() {
             <LongInput label="Other notes" value={notes} onChangeText={setNotes} placeholder="Birthdays, preferences, anything else." />
           </ScrollView>
         </KeyboardAvoidingView>
+        <InteractionSheet ref={interactionSheetRef} />
       </SafeAreaView>
     </>
   );
@@ -377,7 +489,7 @@ function LongInput({ label, value, onChangeText, placeholder }: { label: string;
   return (
     <View style={styles.section}>
       <Text variant="caption" color={c.textMuted} style={{ textTransform: 'uppercase' }}>{label}</Text>
-      <TextInput
+      <StableTextInput
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
@@ -424,5 +536,28 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     padding: spacing.lg, minHeight: 70,
     textAlignVertical: 'top',
+  },
+  logBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: spacing.md,
+    borderRadius: radii.lg,
+  },
+  interactionList: { gap: spacing.sm },
+  interactionRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+    padding: spacing.md,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+  },
+  scoreChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
+    borderWidth: 1,
   },
 });

@@ -31,7 +31,7 @@ export default function AboutScreen() {
             <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
               About
             </Text>
-            <Text variant="h1" style={{ marginTop: 2 }}>Life OS</Text>
+            <Text variant="h1" style={{ marginTop: 2 }}>Beyond</Text>
           </View>
         </View>
 
@@ -40,7 +40,7 @@ export default function AboutScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={[styles.heroCard, { backgroundColor: colors.accentSoft }]}>
-            <Text variant="display" align="center">Life OS</Text>
+            <Text variant="display" align="center">Beyond</Text>
             <Text variant="body" color={colors.textSoft} align="center" style={{ marginTop: spacing.sm, lineHeight: 24 }}>
               A quiet, local-first space for goals, habits, journals, dreams — and the slow work of becoming yourself.
             </Text>

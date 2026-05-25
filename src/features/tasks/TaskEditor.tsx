@@ -6,11 +6,21 @@ import { GoalPicker } from '@/features/goals/GoalPicker';
 import { ReminderPicker } from '@/components/ReminderPicker';
 import { Sheet, SheetRef } from '@/components/Sheet';
 import { SheetInput as Input } from '@/components/SheetInput';
+import { useInputRef } from '@/lib/useInputRef';
 import { Button } from '@/components/Button';
 import { Text } from '@/components/Text';
 import { Chip } from '@/components/Chip';
 import { InlineCalendar } from '@/components/InlineCalendar';
 import { colors, spacing, radii } from '@/theme';
+
+const DURATION_OPTIONS = [
+  { label: 'None', mins: 0 },
+  { label: '30m', mins: 30 },
+  { label: '1h', mins: 60 },
+  { label: '1.5h', mins: 90 },
+  { label: '2h', mins: 120 },
+  { label: '3h', mins: 180 },
+];
 import { confirm } from '@/lib/confirm';
 import { useTasksStore } from './store';
 import { CATEGORY_META, PRIORITY_META } from './types';
@@ -24,14 +34,26 @@ export type TaskEditorRef = {
 export const TaskEditor = forwardRef<TaskEditorRef>(function TaskEditor(_, ref) {
   const sheetRef = useRef<SheetRef>(null);
   const [editing, setEditing] = useState<Task | null>(null);
-  const [title, setTitle] = useState('');
-  const [notes, setNotes] = useState('');
+  const {
+    valueRef: titleRef,
+    snapshot: titleSnapshot,
+    hasContent: hasTitle,
+    onChangeText: onTitleChange,
+    reset: resetTitle,
+  } = useInputRef('');
+  const {
+    valueRef: notesRef,
+    snapshot: notesSnapshot,
+    onChangeText: onNotesChange,
+    reset: resetNotes,
+  } = useInputRef('');
   const [category, setCategory] = useState<TaskCategory | null>(null);
   const [priority, setPriority] = useState<TaskPriority>(2);
   const [dueDate, setDueDate] = useState<string | null>(null);
-  const [goalId, setGoalId] = useState<string | null>(null);
+  const [goalIds, setGoalIds] = useState<string[]>([]);
   const [reminderTime, setReminderTime] = useState<string | null>(null);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [durationMins, setDurationMins] = useState(0);
   const [saving, setSaving] = useState(false);
 
   const create = useTasksStore((s) => s.create);
@@ -40,15 +62,16 @@ export const TaskEditor = forwardRef<TaskEditorRef>(function TaskEditor(_, ref) 
 
   const reset = useCallback((t?: Task) => {
     setEditing(t ?? null);
-    setTitle(t?.title ?? '');
-    setNotes(t?.notes ?? '');
+    resetTitle(t?.title ?? '');
+    resetNotes(t?.notes ?? '');
     setCategory(t?.category ?? null);
     setPriority(t?.priority ?? 2);
     setDueDate(t?.dueDate ?? null);
-    setGoalId(t?.goalId ?? null);
+    setGoalIds(t?.goalIds ?? (t?.goalId ? [t.goalId] : []));
     setReminderTime(t?.reminderTime ?? null);
+    setDurationMins(t?.durationMins ?? 0);
     setShowCalendar(false);
-  }, []);
+  }, [resetTitle, resetNotes]);
 
   useImperativeHandle(ref, () => ({
     present: (task) => {
@@ -59,17 +82,18 @@ export const TaskEditor = forwardRef<TaskEditorRef>(function TaskEditor(_, ref) 
   }));
 
   const handleSave = async () => {
-    if (!title.trim()) return;
+    if (!titleRef.current.trim()) return;
     setSaving(true);
     try {
       const input: TaskInput = {
-        title: title.trim(),
-        notes: notes.trim() || null,
+        title: titleRef.current.trim(),
+        notes: notesRef.current.trim() || null,
         category,
         priority,
         dueDate,
-        goalId,
+        goalIds,
         reminderTime: dueDate ? reminderTime : null,
+        durationMins,
       };
       if (editing) await update(editing.id, input);
       else await create(input);
@@ -113,21 +137,21 @@ export const TaskEditor = forwardRef<TaskEditorRef>(function TaskEditor(_, ref) 
         ) : null
       }
       footer={
-        <Button label={editing ? 'Save changes' : 'Add task'} onPress={handleSave} loading={saving} disabled={!title.trim()} />
+        <Button label={editing ? 'Save changes' : 'Add task'} onPress={handleSave} loading={saving} disabled={!hasTitle} />
       }
     >
       <Input
         label="Title"
         placeholder="What needs doing?"
-        value={title}
-        onChangeText={setTitle}
+        value={titleSnapshot}
+        onChangeText={onTitleChange}
         autoFocus={!editing}
       />
       <Input
         label="Notes (optional)"
         placeholder="Any details..."
-        value={notes}
-        onChangeText={setNotes}
+        value={notesSnapshot}
+        onChangeText={onNotesChange}
         multiline
       />
 
@@ -176,6 +200,26 @@ export const TaskEditor = forwardRef<TaskEditorRef>(function TaskEditor(_, ref) 
 
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
+          <Tag size={14} color={colors.textMuted} strokeWidth={1.75} />
+          <Text variant="caption" color={colors.textMuted} style={styles.sectionLabel}>Time consumed</Text>
+        </View>
+        <Text variant="small" color={colors.textMuted}>
+          How long does this task take? When completed, those hours auto-fill your tracker.
+        </Text>
+        <View style={styles.chipRow}>
+          {DURATION_OPTIONS.map((opt) => (
+            <Chip
+              key={opt.mins}
+              label={opt.label}
+              selected={durationMins === opt.mins}
+              onPress={() => setDurationMins(opt.mins)}
+            />
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
           <CalIcon size={14} color={colors.textMuted} strokeWidth={1.75} />
           <Text variant="caption" color={colors.textMuted} style={styles.sectionLabel}>Due date</Text>
         </View>
@@ -217,7 +261,7 @@ export const TaskEditor = forwardRef<TaskEditorRef>(function TaskEditor(_, ref) 
           <Target size={14} color={colors.textMuted} strokeWidth={1.75} />
           <Text variant="caption" color={colors.textMuted} style={styles.sectionLabel}>Linked goal</Text>
         </View>
-        <GoalPicker value={goalId} onChange={setGoalId} />
+        <GoalPicker multi value={goalIds} onChange={setGoalIds} />
       </View>
 
     </Sheet>

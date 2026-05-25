@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
-  TextInput,
   Pressable,
   Image,
   StyleSheet,
@@ -10,6 +9,7 @@ import {
   Alert,
   KeyboardAvoidingView,
 } from 'react-native';
+import { StableTextInput } from '@/components/StableTextInput';
 import { Stack, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -133,6 +133,7 @@ export default function ProfileScreen() {
             contentContainerStyle={[styles.body, { paddingBottom: 80 + insets.bottom }]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            onScrollBeginDrag={Keyboard.dismiss}
           >
             <Text variant="display">Your profile</Text>
             <Text variant="body" color={colors.textSoft}>
@@ -154,7 +155,7 @@ export default function ProfileScreen() {
               <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
                 Name
               </Text>
-              <TextInput
+              <StableTextInput
                 value={name}
                 onChangeText={setName}
                 placeholder="What should we call you?"
@@ -167,7 +168,7 @@ export default function ProfileScreen() {
               <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
                 Pronouns (optional)
               </Text>
-              <TextInput
+              <StableTextInput
                 value={pronouns}
                 onChangeText={setPronouns}
                 placeholder="e.g. she/her, he/him, they/them"

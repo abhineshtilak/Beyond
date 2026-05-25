@@ -15,13 +15,17 @@ export type Habit = {
   icon: HabitIconKey;
   color: string;
   category: HabitCategory | null;
-  goalId: string | null;
+  goalId: string | null;   // kept for backward compat (primary goal)
+  goalIds: string[];        // all linked goals (from junction table)
   targetDays: number;
   reminderTime: string | null;  // "HH:mm"
   reminderDays: string | null;  // CSV of 0-6 (Sun-Sat)
   notificationIds: string | null; // JSON array
   createdAt: number;
   archived: boolean;
+  streakCredits: number;
+  streakRestoredDate: string | null;
+  durationMins: number;   // minutes this habit typically takes (0 = no auto-log)
 };
 
 export type HabitInput = {
@@ -30,9 +34,11 @@ export type HabitInput = {
   color: string;
   category?: HabitCategory | null;
   targetDays: number;
-  goalId?: string | null;
+  goalIds?: string[];        // replaces goalId for multi-goal support
+  goalId?: string | null;    // kept for backward compat; ignored if goalIds is provided
   reminderTime?: string | null;
   reminderDays?: number[] | null;
+  durationMins?: number;
 };
 
 export type HabitWithStats = Habit & {

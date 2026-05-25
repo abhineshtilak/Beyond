@@ -138,8 +138,10 @@ export async function updateGoal(id: string, patch: Partial<GoalInput>): Promise
 
 export async function deleteGoal(id: string): Promise<void> {
   const db = await getDB();
+  // Nullify legacy goal_id columns for affected rows
   await db.runAsync(`UPDATE tasks SET goal_id = NULL WHERE goal_id = ?`, [id]);
   await db.runAsync(`UPDATE habits SET goal_id = NULL WHERE goal_id = ?`, [id]);
+  // Junction table rows cascade-delete via FK ON DELETE CASCADE
   await db.runAsync(`DELETE FROM goals WHERE id = ?`, [id]);
 }
 
@@ -229,7 +231,8 @@ export async function recalcProgress(goalId: string): Promise<number> {
     [goalId],
   );
   const linkedTasks = await db.getFirstAsync<{ total: number; done: number }>(
-    `SELECT COUNT(*) as total, SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as done FROM tasks WHERE goal_id = ?`,
+    `SELECT COUNT(*) as total, SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END) as done
+     FROM task_goals tg JOIN tasks t ON tg.task_id = t.id WHERE tg.goal_id = ?`,
     [goalId],
   );
   const msTotal = milestones?.total ?? 0;
@@ -255,11 +258,13 @@ export async function goalStats(goalId: string) {
     [goalId],
   );
   const tasks = await db.getFirstAsync<{ total: number; done: number }>(
-    `SELECT COUNT(*) as total, SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as done FROM tasks WHERE goal_id = ?`,
+    `SELECT COUNT(*) as total, SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END) as done
+     FROM task_goals tg JOIN tasks t ON tg.task_id = t.id WHERE tg.goal_id = ?`,
     [goalId],
   );
   const habits = await db.getFirstAsync<{ c: number }>(
-    `SELECT COUNT(*) as c FROM habits WHERE goal_id = ? AND archived = 0`,
+    `SELECT COUNT(*) as c FROM habit_goals hg JOIN habits h ON hg.habit_id = h.id
+     WHERE hg.goal_id = ? AND h.archived = 0`,
     [goalId],
   );
   return {

@@ -10,6 +10,7 @@ import { Chip } from '@/components/Chip';
 import { InlineCalendar } from '@/components/InlineCalendar';
 import { colors, spacing } from '@/theme';
 import { useGoalsStore } from './store';
+import { useInputRef } from '@/lib/useInputRef';
 import {
   GOAL_CATEGORY_META,
   GOAL_PRIORITY_META,
@@ -30,7 +31,13 @@ export const GoalBasicsEditor = forwardRef<GoalBasicsEditorRef, Props>(function 
   const update = useGoalsStore((s) => s.update);
 
   const [goalId, setGoalId] = useState<string | null>(null);
-  const [title, setTitle] = useState('');
+  const {
+    valueRef: titleRef,
+    snapshot: titleSnapshot,
+    hasContent: hasTitle,
+    onChangeText: onTitleChange,
+    reset: resetTitle,
+  } = useInputRef('');
   const [category, setCategory] = useState<GoalCategory | null>(null);
   const [targetDate, setTargetDate] = useState<string | null>(null);
   const [priority, setPriority] = useState<GoalPriority>(2);
@@ -39,12 +46,12 @@ export const GoalBasicsEditor = forwardRef<GoalBasicsEditorRef, Props>(function 
 
   const hydrate = useCallback((g: Goal) => {
     setGoalId(g.id);
-    setTitle(g.title);
+    resetTitle(g.title);
     setCategory(g.category);
     setTargetDate(g.targetDate);
     setPriority(g.priority);
     setShowCalendar(false);
-  }, []);
+  }, [resetTitle]);
 
   useImperativeHandle(ref, () => ({
     present: (goal) => {
@@ -55,10 +62,10 @@ export const GoalBasicsEditor = forwardRef<GoalBasicsEditorRef, Props>(function 
   }));
 
   const handleSave = async () => {
-    if (!goalId || !title.trim()) return;
+    if (!goalId || !titleRef.current.trim()) return;
     setSaving(true);
     try {
-      await update(goalId, { title: title.trim(), category, targetDate, priority });
+      await update(goalId, { title: titleRef.current.trim(), category, targetDate, priority });
       sheetRef.current?.dismiss();
       onSaved?.();
     } finally {
@@ -71,13 +78,13 @@ export const GoalBasicsEditor = forwardRef<GoalBasicsEditorRef, Props>(function 
       ref={sheetRef}
       title="Edit goal"
       snapPoints={['85%']}
-      footer={<Button label="Save changes" onPress={handleSave} loading={saving} disabled={!title.trim()} />}
+      footer={<Button label="Save changes" onPress={handleSave} loading={saving} disabled={!hasTitle} />}
     >
       <Input
         label="Title"
         placeholder="What do you want?"
-        value={title}
-        onChangeText={setTitle}
+        value={titleSnapshot}
+        onChangeText={onTitleChange}
       />
 
       <View style={styles.section}>

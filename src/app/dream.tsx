@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
-  TextInput,
   Pressable,
   Image,
   StyleSheet,
@@ -10,6 +9,7 @@ import {
   Keyboard,
   Alert,
 } from 'react-native';
+import { StableTextInput } from '@/components/StableTextInput';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -155,9 +155,12 @@ export default function DreamScreen() {
           </Pressable>
         </View>
 
+        <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <ScrollView
           contentContainerStyle={{ paddingBottom: 80 + insets.bottom }}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          onScrollBeginDrag={Keyboard.dismiss}
         >
           {/* HERO */}
           {imageUri ? (
@@ -191,13 +194,12 @@ export default function DreamScreen() {
             </Pressable>
           )}
 
-          <KeyboardAvoidingView behavior="padding">
-            <View style={styles.body}>
+          <View style={styles.body}>
               <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
                 {created ? format(created, 'MMMM d, yyyy') : 'New dream'} · {saving ? 'Saving' : isDirty() ? 'Unsaved' : 'Saved'}
               </Text>
 
-              <TextInput
+              <StableTextInput
                 value={title}
                 onChangeText={setTitle}
                 placeholder="The dream"
@@ -210,7 +212,7 @@ export default function DreamScreen() {
                 <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
                   Describe it
                 </Text>
-                <TextInput
+                <StableTextInput
                   value={description}
                   onChangeText={setDescription}
                   placeholder="What does this look like? Picture the scene in detail."
@@ -224,7 +226,7 @@ export default function DreamScreen() {
                 <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
                   Why it pulls at you
                 </Text>
-                <TextInput
+                <StableTextInput
                   value={why}
                   onChangeText={setWhy}
                   placeholder="Why does this dream matter? What does it represent?"
@@ -240,9 +242,9 @@ export default function DreamScreen() {
                 </Text>
                 <MediaAttachments attachments={attachments} onChange={setAttachments} />
               </View>
-            </View>
-          </KeyboardAvoidingView>
+          </View>
         </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </>
   );

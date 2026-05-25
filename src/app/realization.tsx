@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
-  TextInput,
   Pressable,
   StyleSheet,
   KeyboardAvoidingView,
@@ -10,6 +9,7 @@ import {
   Image,
   Alert,
 } from 'react-native';
+import { StableTextInput } from '@/components/StableTextInput';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RichEditor, RichToolbar, actions } from 'react-native-pell-rich-editor';
@@ -195,6 +195,7 @@ export default function RealizationScreen() {
             contentContainerStyle={[styles.body, { paddingBottom: 100 + insets.bottom }]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            onScrollBeginDrag={Keyboard.dismiss}
           >
             <View style={styles.kindRow}>
               {REALIZATION_KINDS.map((k) => (
@@ -209,7 +210,7 @@ export default function RealizationScreen() {
               ))}
             </View>
 
-            <TextInput
+            <StableTextInput
               value={title}
               onChangeText={setTitle}
               placeholder="Title"

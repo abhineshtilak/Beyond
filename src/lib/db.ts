@@ -80,6 +80,37 @@ async function runMigrations() {
   if (!(await columnExists('people', 'anniversary'))) {
     await db.runAsync(`ALTER TABLE people ADD COLUMN anniversary TEXT`);
   }
+  // People: deep relationship fields
+  if (!(await columnExists('people', 'next_topics'))) {
+    await db.runAsync(`ALTER TABLE people ADD COLUMN next_topics TEXT`);
+  }
+  if (!(await columnExists('people', 'promises'))) {
+    await db.runAsync(`ALTER TABLE people ADD COLUMN promises TEXT`);
+  }
+  if (!(await columnExists('people', 'relationship_score'))) {
+    await db.runAsync(`ALTER TABLE people ADD COLUMN relationship_score INTEGER DEFAULT 3`);
+  }
+  if (!(await columnExists('people', 'how_we_met'))) {
+    await db.runAsync(`ALTER TABLE people ADD COLUMN how_we_met TEXT`);
+  }
+  if (!(await columnExists('people', 'shared_memories'))) {
+    await db.runAsync(`ALTER TABLE people ADD COLUMN shared_memories TEXT`);
+  }
+  // Person interactions log
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS person_interactions (
+      id          TEXT PRIMARY KEY,
+      person_id   TEXT NOT NULL,
+      log_date    TEXT NOT NULL,
+      notes       TEXT,
+      mood        TEXT,
+      medium      TEXT,
+      duration_mins INTEGER,
+      created_at  INTEGER NOT NULL,
+      FOREIGN KEY (person_id) REFERENCES people(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_interactions_person ON person_interactions(person_id, log_date);
+  `);
   // Learning: target, status, attachments, goal link, reminders
   if (!(await columnExists('learning', 'target_date'))) {
     await db.runAsync(`ALTER TABLE learning ADD COLUMN target_date TEXT`);
@@ -102,6 +133,102 @@ async function runMigrations() {
   if (!(await columnExists('learning', 'notification_ids'))) {
     await db.runAsync(`ALTER TABLE learning ADD COLUMN notification_ids TEXT`);
   }
+  // Habit / Task: time consumed (for auto-logging to hour tracker)
+  if (!(await columnExists('habits', 'duration_mins'))) {
+    await db.runAsync(`ALTER TABLE habits ADD COLUMN duration_mins INTEGER DEFAULT 0`);
+  }
+  if (!(await columnExists('tasks', 'duration_mins'))) {
+    await db.runAsync(`ALTER TABLE tasks ADD COLUMN duration_mins INTEGER DEFAULT 0`);
+  }
+
+  // Streak Saver credits
+  if (!(await columnExists('habits', 'streak_credits'))) {
+    await db.runAsync(`ALTER TABLE habits ADD COLUMN streak_credits INTEGER DEFAULT 0`);
+  }
+  if (!(await columnExists('habits', 'streak_restored_date'))) {
+    await db.runAsync(`ALTER TABLE habits ADD COLUMN streak_restored_date TEXT`);
+  }
+
+  // Multi-goal linking junction tables
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS habit_goals (
+      habit_id TEXT NOT NULL,
+      goal_id  TEXT NOT NULL,
+      PRIMARY KEY (habit_id, goal_id),
+      FOREIGN KEY (habit_id) REFERENCES habits(id) ON DELETE CASCADE,
+      FOREIGN KEY (goal_id)  REFERENCES goals(id)  ON DELETE CASCADE
+    );
+    CREATE TABLE IF NOT EXISTS task_goals (
+      task_id TEXT NOT NULL,
+      goal_id TEXT NOT NULL,
+      PRIMARY KEY (task_id, goal_id),
+      FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+      FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE CASCADE
+    );
+  `);
+  // Migrate existing single goal_id → junction rows (idempotent INSERT OR IGNORE)
+  await db.execAsync(`
+    INSERT OR IGNORE INTO habit_goals (habit_id, goal_id)
+      SELECT id, goal_id FROM habits WHERE goal_id IS NOT NULL;
+    INSERT OR IGNORE INTO task_goals (task_id, goal_id)
+      SELECT id, goal_id FROM tasks WHERE goal_id IS NOT NULL;
+  `);
+
+  // Hour Tracker: sub-hour time blocks + custom categories
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS time_blocks (
+      id            TEXT PRIMARY KEY,
+      log_date      TEXT NOT NULL,
+      start_hour    INTEGER NOT NULL,
+      start_minute  INTEGER DEFAULT 0,
+      duration_mins INTEGER NOT NULL DEFAULT 60,
+      activity      TEXT NOT NULL,
+      category      TEXT,
+      created_at    INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_time_blocks_date ON time_blocks(log_date);
+
+    CREATE TABLE IF NOT EXISTS hour_categories (
+      id       TEXT PRIMARY KEY,
+      label    TEXT NOT NULL,
+      color    TEXT NOT NULL,
+      sort_idx INTEGER DEFAULT 0
+    );
+  `);
+  // Seed default categories if table is empty (new installs)
+  const catCount = await db.getFirstAsync<{ n: number }>(`SELECT COUNT(*) as n FROM hour_categories`);
+  if ((catCount?.n ?? 0) === 0) {
+    const defaults: Array<[string, string, string, number]> = [
+      ['work',     'Work',     '#9EB7C9', 0],
+      ['learning', 'Learning', '#B8A8C9', 1],
+      ['health',   'Health',   '#A8B89F', 2],
+      ['personal', 'Personal', '#EFE7DC', 3],
+      ['finance',  'Finance',  '#EEE4C8', 4],
+      ['social',   'Social',   '#E8D095', 5],
+      ['rest',     'Rest',     '#C9C2B7', 6],
+      ['creative', 'Creative', '#D8A4A4', 7],
+      ['other',    'Other',    '#EBDADA', 8],
+    ];
+    for (const [id, label, color, sort_idx] of defaults) {
+      await db.runAsync(
+        `INSERT OR IGNORE INTO hour_categories (id, label, color, sort_idx) VALUES (?, ?, ?, ?)`,
+        [id, label, color, sort_idx],
+      );
+    }
+  } else {
+    // Migration: ensure task-aligned categories exist for existing users
+    const aligned: Array<[string, string, string, number]> = [
+      ['finance', 'Finance', '#EEE4C8', 10],
+      ['other',   'Other',   '#EBDADA', 11],
+    ];
+    for (const [id, label, color, sort_idx] of aligned) {
+      await db.runAsync(
+        `INSERT OR IGNORE INTO hour_categories (id, label, color, sort_idx) VALUES (?, ?, ?, ?)`,
+        [id, label, color, sort_idx],
+      );
+    }
+  }
+
   // Profile + settings tables
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS profile (

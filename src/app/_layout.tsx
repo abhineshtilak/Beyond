@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, ActivityIndicator, AppState, type AppStateStatus } from 'react-native';
+import { View, ActivityIndicator, AppState, Platform, type AppStateStatus } from 'react-native';
 import { Stack, SplashScreen } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -23,6 +23,14 @@ import { useAuthStore } from '@/store/auth';
 import { LockScreen } from '@/components/LockScreen';
 
 configureHandler();
+
+// Register the Android widget task handler at module load.
+// The import is a side-effect — the imported module calls registerWidgetTaskHandler().
+// Guarded so iOS / web bundles never touch the native module.
+if (Platform.OS === 'android') {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('@/widgets/widgetTaskHandler');
+}
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -72,6 +80,28 @@ export default function RootLayout() {
 // How long the app must be in background before re-locking (ms)
 const LOCK_AFTER_BG_MS = 30_000;
 
+// Ask Android to re-render both widgets with fresh data.
+// Wrapped in try/catch so Expo Go (where the native module is missing) no-ops.
+async function refreshWidgets() {
+  if (Platform.OS !== 'android') return;
+  try {
+    const { requestWidgetUpdate } = await import('react-native-android-widget');
+    const { renderTasksJSX, renderHabitsJSX } = await import('@/widgets/widgetTaskHandler');
+    await Promise.all([
+      requestWidgetUpdate({
+        widgetName: 'Tasks',
+        renderWidget: () => renderTasksJSX(),
+      }),
+      requestWidgetUpdate({
+        widgetName: 'Habits',
+        renderWidget: () => renderHabitsJSX(),
+      }),
+    ]);
+  } catch {
+    // Native module unavailable (Expo Go) — no-op.
+  }
+}
+
 function RootShell() {
   const themed = useColors();
   const locked = useAuthStore((s) => s.locked);
@@ -80,11 +110,16 @@ function RootShell() {
   const mode = useAuthStore((s) => s.mode);
 
   // Re-lock when app returns from background after LOCK_AFTER_BG_MS
+  // Also refresh Android widgets so home screen data stays current.
   const bgSince = useRef<number | null>(null);
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state: AppStateStatus) => {
       if (state === 'background' || state === 'inactive') {
         bgSince.current = Date.now();
+        // Refresh widgets when app goes to background (user may check home screen)
+        if (Platform.OS === 'android') {
+          refreshWidgets();
+        }
       } else if (state === 'active') {
         const since = bgSince.current;
         if (since !== null && Date.now() - since >= LOCK_AFTER_BG_MS) {

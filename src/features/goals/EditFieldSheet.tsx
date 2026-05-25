@@ -48,7 +48,7 @@ export const EditFieldSheet = forwardRef<EditFieldSheetRef>(function EditFieldSh
       ref={sheetRef}
       title={config?.title ?? ''}
       subtitle={config?.subtitle}
-      snapPoints={['72%']}
+      snapPoints={['90%']}
       footer={<Button label="Save" onPress={handleSave} loading={saving} />}
     >
       <Input

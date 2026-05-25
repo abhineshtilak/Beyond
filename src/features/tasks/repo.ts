@@ -17,9 +17,10 @@ type Row = {
   notification_id: string | null;
   created_at: number;
   completed_at: number | null;
+  duration_mins: number | null;
 };
 
-const toTask = (r: Row): Task => ({
+const toTask = (r: Row, goalIds: string[] = []): Task => ({
   id: r.id,
   title: r.title,
   notes: r.notes,
@@ -27,12 +28,36 @@ const toTask = (r: Row): Task => ({
   priority: (r.priority as Task['priority']) ?? 2,
   dueDate: r.due_date,
   status: (r.status as TaskStatus) ?? 'pending',
-  goalId: r.goal_id,
+  goalId: goalIds[0] ?? r.goal_id,
+  goalIds,
   reminderTime: r.reminder_time,
   notificationId: r.notification_id,
   createdAt: r.created_at,
   completedAt: r.completed_at,
+  durationMins: r.duration_mins ?? 0,
 });
+
+async function fetchTaskGoalIds(taskId: string): Promise<string[]> {
+  const db = await getDB();
+  const rows = await db.getAllAsync<{ goal_id: string }>(
+    `SELECT goal_id FROM task_goals WHERE task_id = ?`, [taskId],
+  );
+  return rows.map((r) => r.goal_id);
+}
+
+async function syncTaskGoals(taskId: string, goalIds: string[]): Promise<void> {
+  const db = await getDB();
+  await db.runAsync(`DELETE FROM task_goals WHERE task_id = ?`, [taskId]);
+  for (const gid of goalIds) {
+    await db.runAsync(`INSERT OR IGNORE INTO task_goals (task_id, goal_id) VALUES (?, ?)`, [taskId, gid]);
+  }
+  await db.runAsync(`UPDATE tasks SET goal_id = ? WHERE id = ?`, [goalIds[0] ?? null, taskId]);
+}
+
+async function recalcAllTaskGoals(taskId: string): Promise<void> {
+  const goalIds = await fetchTaskGoalIds(taskId);
+  await Promise.all(goalIds.map((gid) => recalcGoalProgress(gid)));
+}
 
 async function scheduleTaskReminder(
   taskId: string,
@@ -56,16 +81,23 @@ export async function listTasks(): Promise<Task[]> {
        priority DESC,
        created_at DESC`,
   );
-  return rows.map(toTask);
+  const tasks: Task[] = [];
+  for (const r of rows) {
+    const goalIds = await fetchTaskGoalIds(r.id);
+    tasks.push(toTask(r, goalIds));
+  }
+  return tasks;
 }
 
 export async function createTask(input: TaskInput): Promise<Task> {
   const db = await getDB();
   const id = uid();
   const now = Date.now();
+  const goalIds = input.goalIds ?? (input.goalId ? [input.goalId] : []);
+  const primaryGoalId = goalIds[0] ?? null;
   await db.runAsync(
-    `INSERT INTO tasks (id, title, notes, category, priority, due_date, status, goal_id, reminder_time, notification_id, created_at, completed_at)
-     VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, NULL, ?, NULL)`,
+    `INSERT INTO tasks (id, title, notes, category, priority, due_date, status, goal_id, reminder_time, notification_id, duration_mins, created_at, completed_at)
+     VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, NULL, ?, ?, NULL)`,
     [
       id,
       input.title.trim(),
@@ -73,16 +105,18 @@ export async function createTask(input: TaskInput): Promise<Task> {
       input.category ?? null,
       input.priority ?? 2,
       input.dueDate ?? null,
-      input.goalId ?? null,
+      primaryGoalId,
       input.reminderTime ?? null,
+      input.durationMins ?? 0,
       now,
     ],
   );
+  await syncTaskGoals(id, goalIds);
   const notificationId = await scheduleTaskReminder(id, input.title.trim(), input.dueDate ?? null, input.reminderTime ?? null, null);
   if (notificationId) {
     await db.runAsync(`UPDATE tasks SET notification_id = ? WHERE id = ?`, [notificationId, id]);
   }
-  if (input.goalId) await recalcGoalProgress(input.goalId);
+  await Promise.all(goalIds.map((gid) => recalcGoalProgress(gid)));
   return {
     id,
     title: input.title.trim(),
@@ -91,22 +125,26 @@ export async function createTask(input: TaskInput): Promise<Task> {
     priority: input.priority ?? 2,
     dueDate: input.dueDate ?? null,
     status: 'pending',
-    goalId: input.goalId ?? null,
+    goalId: primaryGoalId,
+    goalIds,
     reminderTime: input.reminderTime ?? null,
     notificationId,
     createdAt: now,
     completedAt: null,
+    durationMins: input.durationMins ?? 0,
   };
 }
 
 export async function updateTask(id: string, input: TaskInput): Promise<void> {
   const db = await getDB();
-  const prev = await db.getFirstAsync<{ goal_id: string | null; notification_id: string | null }>(
-    `SELECT goal_id, notification_id FROM tasks WHERE id = ?`,
-    [id],
+  const prev = await db.getFirstAsync<{ notification_id: string | null }>(
+    `SELECT notification_id FROM tasks WHERE id = ?`, [id],
   );
+  const prevGoalIds = await fetchTaskGoalIds(id);
+  const goalIds = input.goalIds ?? (input.goalId !== undefined ? (input.goalId ? [input.goalId] : []) : prevGoalIds);
+  const primaryGoalId = goalIds[0] ?? null;
   await db.runAsync(
-    `UPDATE tasks SET title = ?, notes = ?, category = ?, priority = ?, due_date = ?, goal_id = ?, reminder_time = ?
+    `UPDATE tasks SET title = ?, notes = ?, category = ?, priority = ?, due_date = ?, goal_id = ?, reminder_time = ?, duration_mins = ?
      WHERE id = ?`,
     [
       input.title.trim(),
@@ -114,21 +152,20 @@ export async function updateTask(id: string, input: TaskInput): Promise<void> {
       input.category ?? null,
       input.priority ?? 2,
       input.dueDate ?? null,
-      input.goalId ?? null,
+      primaryGoalId,
       input.reminderTime ?? null,
+      input.durationMins ?? 0,
       id,
     ],
   );
+  await syncTaskGoals(id, goalIds);
   const notificationId = await scheduleTaskReminder(
-    id,
-    input.title.trim(),
-    input.dueDate ?? null,
-    input.reminderTime ?? null,
-    prev?.notification_id ?? null,
+    id, input.title.trim(), input.dueDate ?? null, input.reminderTime ?? null, prev?.notification_id ?? null,
   );
   await db.runAsync(`UPDATE tasks SET notification_id = ? WHERE id = ?`, [notificationId, id]);
-  if (prev?.goal_id && prev.goal_id !== input.goalId) await recalcGoalProgress(prev.goal_id);
-  if (input.goalId) await recalcGoalProgress(input.goalId);
+  // Recalc all old + new goals
+  const allGoals = Array.from(new Set([...prevGoalIds, ...goalIds]));
+  await Promise.all(allGoals.map((gid) => recalcGoalProgress(gid)));
 }
 
 export async function setStatus(id: string, status: TaskStatus): Promise<void> {
@@ -138,15 +175,30 @@ export async function setStatus(id: string, status: TaskStatus): Promise<void> {
     `UPDATE tasks SET status = ?, completed_at = ? WHERE id = ?`,
     [status, completed, id],
   );
-  const row = await db.getFirstAsync<{ goal_id: string | null; notification_id: string | null }>(
-    `SELECT goal_id, notification_id FROM tasks WHERE id = ?`,
-    [id],
-  );
-  if (status === 'completed' && row?.notification_id) {
-    await notifications.cancel(row.notification_id);
-    await db.runAsync(`UPDATE tasks SET notification_id = NULL WHERE id = ?`, [id]);
+  const row = await db.getFirstAsync<{
+    notification_id: string | null;
+    title: string;
+    category: string | null;
+    duration_mins: number | null;
+  }>(`SELECT notification_id, title, category, duration_mins FROM tasks WHERE id = ?`, [id]);
+  if (status === 'completed') {
+    if (row?.notification_id) {
+      await notifications.cancel(row.notification_id);
+      await db.runAsync(`UPDATE tasks SET notification_id = NULL WHERE id = ?`, [id]);
+    }
+    // Auto-log to hour tracker if duration is set
+    if (row && (row.duration_mins ?? 0) > 0) {
+      const taskCatMap: Record<string, string> = {
+        work: 'work', health: 'health', learning: 'learning',
+        personal: 'personal', finance: 'finance', other: 'other',
+      };
+      const hourCategory = taskCatMap[row.category ?? ''] ?? null;
+      import('@/features/hours/repo').then(({ autoLogActivity }) =>
+        autoLogActivity(row.title, hourCategory, row.duration_mins!, ymd()),
+      ).catch(() => {});
+    }
   }
-  if (row?.goal_id) await recalcGoalProgress(row.goal_id);
+  await recalcAllTaskGoals(id);
 }
 
 export async function postponeTask(id: string, toDate: string): Promise<void> {
@@ -159,13 +211,14 @@ export async function postponeTask(id: string, toDate: string): Promise<void> {
 
 export async function deleteTask(id: string): Promise<void> {
   const db = await getDB();
-  const row = await db.getFirstAsync<{ goal_id: string | null; notification_id: string | null }>(
-    `SELECT goal_id, notification_id FROM tasks WHERE id = ?`,
-    [id],
+  const row = await db.getFirstAsync<{ notification_id: string | null }>(
+    `SELECT notification_id FROM tasks WHERE id = ?`, [id],
   );
+  const goalIds = await fetchTaskGoalIds(id);
   if (row?.notification_id) await notifications.cancel(row.notification_id);
   await db.runAsync(`DELETE FROM tasks WHERE id = ?`, [id]);
-  if (row?.goal_id) await recalcGoalProgress(row.goal_id);
+  // task_goals cascade-deletes automatically; recalc affected goals
+  await Promise.all(goalIds.map((gid) => recalcGoalProgress(gid)));
 }
 
 export async function markMissed(): Promise<void> {

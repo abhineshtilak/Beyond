@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
-import { View, FlatList, Pressable, StyleSheet, TextInput, Image } from 'react-native';
+import { View, FlatList, Pressable, StyleSheet, Image } from 'react-native';
+import { StableTextInput } from '@/components/StableTextInput';
 import { Stack, useRouter, useFocusEffect } from 'expo-router';
 import { format } from 'date-fns';
 import * as Haptics from 'expo-haptics';
@@ -124,7 +125,7 @@ export default function RealizationsScreen() {
 
                   <View style={styles.searchBox}>
                     <Search size={16} color={colors.textMuted} strokeWidth={1.75} />
-                    <TextInput
+                    <StableTextInput
                       value={query}
                       onChangeText={setQuery}
                       placeholder="Search your thoughts..."

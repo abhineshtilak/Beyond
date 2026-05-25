@@ -12,9 +12,19 @@ import { Chip } from '@/components/Chip';
 import { colors, radii, spacing } from '@/theme';
 import { confirm } from '@/lib/confirm';
 import { useHabitsStore } from './store';
+import { useInputRef } from '@/lib/useInputRef';
 import { HABIT_ICONS } from './icons';
 import { HABIT_COLORS, HABIT_ICON_KEYS, TIMELINE_PRESETS } from './types';
 import type { Habit, HabitInput, HabitIconKey } from './types';
+
+const DURATION_OPTIONS = [
+  { label: 'None', mins: 0 },
+  { label: '30m', mins: 30 },
+  { label: '1h', mins: 60 },
+  { label: '1.5h', mins: 90 },
+  { label: '2h', mins: 120 },
+  { label: '3h', mins: 180 },
+];
 
 export type HabitEditorRef = {
   present: (habit?: Habit) => void;
@@ -24,12 +34,19 @@ export type HabitEditorRef = {
 export const HabitEditor = forwardRef<HabitEditorRef>(function HabitEditor(_, ref) {
   const sheetRef = useRef<SheetRef>(null);
   const [editing, setEditing] = useState<Habit | null>(null);
-  const [title, setTitle] = useState('');
+  const {
+    valueRef: titleRef,
+    snapshot: titleSnapshot,
+    hasContent: hasTitle,
+    onChangeText: onTitleChange,
+    reset: resetTitle,
+  } = useInputRef('');
   const [icon, setIcon] = useState<HabitIconKey>('sparkles');
   const [color, setColor] = useState(HABIT_COLORS[0]);
   const [targetDays, setTargetDays] = useState<number>(30);
   const [customDays, setCustomDays] = useState('');
-  const [goalId, setGoalId] = useState<string | null>(null);
+  const [durationMins, setDurationMins] = useState(0);
+  const [goalIds, setGoalIds] = useState<string[]>([]);
   const [reminderTime, setReminderTime] = useState<string | null>(null);
   const [reminderDays, setReminderDays] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
@@ -40,16 +57,17 @@ export const HabitEditor = forwardRef<HabitEditorRef>(function HabitEditor(_, re
 
   const reset = useCallback((h?: Habit) => {
     setEditing(h ?? null);
-    setTitle(h?.title ?? '');
+    resetTitle(h?.title ?? '');
     setIcon(h?.icon ?? 'sparkles');
     setColor(h?.color ?? HABIT_COLORS[0]);
     setTargetDays(h?.targetDays ?? 30);
     const presetMatch = TIMELINE_PRESETS.some((p) => p.days === (h?.targetDays ?? 30));
     setCustomDays(presetMatch ? '' : String(h?.targetDays ?? ''));
-    setGoalId(h?.goalId ?? null);
+    setDurationMins(h?.durationMins ?? 0);
+    setGoalIds(h?.goalIds ?? (h?.goalId ? [h.goalId] : []));
     setReminderTime(h?.reminderTime ?? null);
     setReminderDays(parseReminderDays(h?.reminderDays ?? null));
-  }, []);
+  }, [resetTitle]);
 
   useImperativeHandle(ref, () => ({
     present: (habit) => {
@@ -60,12 +78,12 @@ export const HabitEditor = forwardRef<HabitEditorRef>(function HabitEditor(_, re
   }));
 
   const handleSave = async () => {
-    if (!title.trim()) return;
+    if (!titleRef.current.trim()) return;
     setSaving(true);
     try {
       const input: HabitInput = {
-        title: title.trim(), icon, color, targetDays, goalId,
-        reminderTime, reminderDays,
+        title: titleRef.current.trim(), icon, color, targetDays, goalIds,
+        reminderTime, reminderDays, durationMins,
       };
       if (editing) await update(editing.id, input);
       else await create(input);
@@ -117,7 +135,7 @@ export const HabitEditor = forwardRef<HabitEditorRef>(function HabitEditor(_, re
           </Pressable>
         ) : null
       }
-      footer={<Button label={editing ? 'Save changes' : 'Add habit'} onPress={handleSave} loading={saving} disabled={!title.trim()} />}
+      footer={<Button label={editing ? 'Save changes' : 'Add habit'} onPress={handleSave} loading={saving} disabled={!hasTitle} />}
     >
       <View style={styles.previewWrap}>
         <View style={[styles.preview, { backgroundColor: color + '33' }]}>
@@ -131,8 +149,8 @@ export const HabitEditor = forwardRef<HabitEditorRef>(function HabitEditor(_, re
       <Input
         label="Name"
         placeholder="e.g. Meditate, Read, Drink water"
-        value={title}
-        onChangeText={setTitle}
+        value={titleSnapshot}
+        onChangeText={onTitleChange}
         autoFocus={!editing}
       />
 
@@ -162,6 +180,23 @@ export const HabitEditor = forwardRef<HabitEditorRef>(function HabitEditor(_, re
             keyboardType="numeric"
           />
         ) : null}
+      </View>
+
+      <View style={styles.section}>
+        <Text variant="caption" color={colors.textMuted} style={styles.sectionLabel}>Time consumed</Text>
+        <Text variant="small" color={colors.textMuted}>
+          How long does this habit take? When you log it, those hours will auto-fill in your tracker.
+        </Text>
+        <View style={styles.chipRow}>
+          {DURATION_OPTIONS.map((opt) => (
+            <Chip
+              key={opt.mins}
+              label={opt.label}
+              selected={durationMins === opt.mins}
+              onPress={() => setDurationMins(opt.mins)}
+            />
+          ))}
+        </View>
       </View>
 
       <View style={styles.section}>
@@ -216,7 +251,7 @@ export const HabitEditor = forwardRef<HabitEditorRef>(function HabitEditor(_, re
           <Target size={14} color={colors.textMuted} strokeWidth={1.75} />
           <Text variant="caption" color={colors.textMuted} style={styles.sectionLabel}>Linked goal</Text>
         </View>
-        <GoalPicker value={goalId} onChange={setGoalId} />
+        <GoalPicker multi value={goalIds} onChange={setGoalIds} />
       </View>
 
     </Sheet>

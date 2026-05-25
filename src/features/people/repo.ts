@@ -21,6 +21,11 @@ type Row = {
   birthday: string | null;
   anniversary: string | null;
   created_at: number;
+  next_topics: string | null;
+  promises: string | null;
+  relationship_score: number | null;
+  how_we_met: string | null;
+  shared_memories: string | null;
 };
 
 const toPerson = (r: Row): Person => ({
@@ -40,6 +45,11 @@ const toPerson = (r: Row): Person => ({
   birthday: r.birthday,
   anniversary: r.anniversary,
   createdAt: r.created_at,
+  nextTopics: r.next_topics,
+  promises: r.promises,
+  relationshipScore: r.relationship_score,
+  howWeMet: r.how_we_met,
+  sharedMemories: r.shared_memories,
 });
 
 async function scheduleReminder(person: Person): Promise<string | null> {
@@ -72,14 +82,16 @@ export async function create(input: PersonInput): Promise<Person> {
   const id = uid();
   const now = Date.now();
   await db.runAsync(
-    `INSERT INTO people (id, name, relation, photo_uri, notes, their_goals, their_struggles, my_support, contributions, future_plans, last_contact_date, contact_reminder_days, birthday, anniversary, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO people (id, name, relation, photo_uri, notes, their_goals, their_struggles, my_support, contributions, future_plans, last_contact_date, contact_reminder_days, birthday, anniversary, next_topics, promises, relationship_score, how_we_met, shared_memories, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id, input.name.trim(), input.relation ?? null, input.photoUri ?? null, input.notes ?? null,
       input.theirGoals ?? null, input.theirStruggles ?? null, input.mySupport ?? null,
       input.contributions ?? null, input.futurePlans ?? null,
       input.lastContactDate ?? null, input.contactReminderDays ?? null,
       input.birthday ?? null, input.anniversary ?? null,
+      input.nextTopics ?? null, input.promises ?? null,
+      input.relationshipScore ?? null, input.howWeMet ?? null, input.sharedMemories ?? null,
       now,
     ],
   );
@@ -95,29 +107,38 @@ export async function update(id: string, patch: Partial<PersonInput>): Promise<v
   const db = await getDB();
   const existing = await get(id);
   if (!existing) return;
+  const p = <T>(patchVal: T | undefined, existingVal: T): T =>
+    patchVal !== undefined ? patchVal : existingVal;
   const merged = {
     name: patch.name?.trim() ?? existing.name,
-    relation: patch.relation !== undefined ? patch.relation : existing.relation,
-    photoUri: patch.photoUri !== undefined ? patch.photoUri : existing.photoUri,
-    notes: patch.notes !== undefined ? patch.notes : existing.notes,
-    theirGoals: patch.theirGoals !== undefined ? patch.theirGoals : existing.theirGoals,
-    theirStruggles: patch.theirStruggles !== undefined ? patch.theirStruggles : existing.theirStruggles,
-    mySupport: patch.mySupport !== undefined ? patch.mySupport : existing.mySupport,
-    contributions: patch.contributions !== undefined ? patch.contributions : existing.contributions,
-    futurePlans: patch.futurePlans !== undefined ? patch.futurePlans : existing.futurePlans,
-    lastContactDate: patch.lastContactDate !== undefined ? patch.lastContactDate : existing.lastContactDate,
-    contactReminderDays: patch.contactReminderDays !== undefined ? patch.contactReminderDays : existing.contactReminderDays,
-    birthday: patch.birthday !== undefined ? patch.birthday : existing.birthday,
-    anniversary: patch.anniversary !== undefined ? patch.anniversary : existing.anniversary,
+    relation: p(patch.relation, existing.relation),
+    photoUri: p(patch.photoUri, existing.photoUri),
+    notes: p(patch.notes, existing.notes),
+    theirGoals: p(patch.theirGoals, existing.theirGoals),
+    theirStruggles: p(patch.theirStruggles, existing.theirStruggles),
+    mySupport: p(patch.mySupport, existing.mySupport),
+    contributions: p(patch.contributions, existing.contributions),
+    futurePlans: p(patch.futurePlans, existing.futurePlans),
+    lastContactDate: p(patch.lastContactDate, existing.lastContactDate),
+    contactReminderDays: p(patch.contactReminderDays, existing.contactReminderDays),
+    birthday: p(patch.birthday, existing.birthday),
+    anniversary: p(patch.anniversary, existing.anniversary),
+    nextTopics: p(patch.nextTopics, existing.nextTopics),
+    promises: p(patch.promises, existing.promises),
+    relationshipScore: p(patch.relationshipScore, existing.relationshipScore),
+    howWeMet: p(patch.howWeMet, existing.howWeMet),
+    sharedMemories: p(patch.sharedMemories, existing.sharedMemories),
   };
   await db.runAsync(
-    `UPDATE people SET name = ?, relation = ?, photo_uri = ?, notes = ?, their_goals = ?, their_struggles = ?, my_support = ?, contributions = ?, future_plans = ?, last_contact_date = ?, contact_reminder_days = ?, birthday = ?, anniversary = ? WHERE id = ?`,
+    `UPDATE people SET name = ?, relation = ?, photo_uri = ?, notes = ?, their_goals = ?, their_struggles = ?, my_support = ?, contributions = ?, future_plans = ?, last_contact_date = ?, contact_reminder_days = ?, birthday = ?, anniversary = ?, next_topics = ?, promises = ?, relationship_score = ?, how_we_met = ?, shared_memories = ? WHERE id = ?`,
     [
       merged.name, merged.relation, merged.photoUri, merged.notes,
       merged.theirGoals, merged.theirStruggles, merged.mySupport,
       merged.contributions, merged.futurePlans,
       merged.lastContactDate, merged.contactReminderDays,
       merged.birthday, merged.anniversary,
+      merged.nextTopics, merged.promises, merged.relationshipScore,
+      merged.howWeMet, merged.sharedMemories,
       id,
     ],
   );

@@ -11,11 +11,13 @@ export type Task = {
   priority: TaskPriority;
   dueDate: string | null;
   status: TaskStatus;
-  goalId: string | null;
+  goalId: string | null;   // kept for backward compat (primary goal)
+  goalIds: string[];        // all linked goals (from junction table)
   reminderTime: string | null;
   notificationId: string | null;
   createdAt: number;
   completedAt: number | null;
+  durationMins: number;   // minutes this task typically takes (0 = no auto-log)
 };
 
 export type TaskInput = {
@@ -24,8 +26,10 @@ export type TaskInput = {
   category?: TaskCategory | null;
   priority?: TaskPriority;
   dueDate?: string | null;
-  goalId?: string | null;
+  goalIds?: string[];        // replaces goalId for multi-goal support
+  goalId?: string | null;    // kept for backward compat; ignored if goalIds is provided
   reminderTime?: string | null;
+  durationMins?: number;
 };
 
 export const PRIORITY_META: Record<TaskPriority, { label: string; tint: string }> = {
