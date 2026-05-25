@@ -7,7 +7,7 @@ import React, {
   useState,
 } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
-import { X } from 'lucide-react-native';
+import { X, Pencil } from 'lucide-react-native';
 import { Sheet, SheetRef } from '@/components/Sheet';
 import { SheetInput } from '@/components/SheetInput';
 import { useInputRef } from '@/lib/useInputRef';
@@ -34,6 +34,7 @@ export const BlockEditor = forwardRef<BlockEditorRef>(function BlockEditor(_, re
 
   const [blocks, setBlocks] = useState<TimeBlock[]>([]);
   const [categories, setCategories] = useState<HourCategoryRow[]>([]);
+  const [editing, setEditing] = useState<TimeBlock | null>(null);
 
   const {
     valueRef: activityRef,
@@ -44,29 +45,48 @@ export const BlockEditor = forwardRef<BlockEditorRef>(function BlockEditor(_, re
   } = useInputRef('');
   const [category, setCategory] = useState<string | null>(null);
   const [durationMins, setDurationMins] = useState(60);
+  const [startMin, setStartMin] = useState(0);
   const [saving, setSaving] = useState(false);
 
   // Auto-detect next start minute from the last block added this hour
   const nextStartMin = useMemo(() => {
+    if (editing) return editing.startMinute;
     if (blocks.length === 0) return 0;
     const sorted = [...blocks].sort((a, b) => a.startMinute - b.startMinute);
     const last = sorted[sorted.length - 1];
     const next = last.startMinute + last.durationMins;
     return next >= 60 ? 0 : next;
-  }, [blocks]);
+  }, [blocks, editing]);
 
   const refreshBlocks = useCallback(async () => {
     const bks = await repo.listBlocksForHour(dateRef.current, hourRef.current);
     setBlocks(bks);
   }, []);
 
+  const enterEdit = useCallback((block: TimeBlock) => {
+    setEditing(block);
+    resetActivity(block.activity);
+    setCategory(block.category);
+    setDurationMins(block.durationMins);
+    setStartMin(block.startMinute);
+  }, [resetActivity]);
+
+  const cancelEdit = useCallback(() => {
+    setEditing(null);
+    resetActivity('');
+    setCategory(null);
+    setDurationMins(60);
+  }, [resetActivity]);
+
   const present = useCallback(async (date: string, hour: number, onSaved: () => void) => {
     dateRef.current = date;
     hourRef.current = hour;
     onSavedRef.current = onSaved;
+    setEditing(null);
     resetActivity('');
     setCategory(null);
     setDurationMins(60);
+    setStartMin(0);
     const [cats, bks] = await Promise.all([
       repo.listCategories(),
       repo.listBlocksForHour(date, hour),
@@ -81,28 +101,39 @@ export const BlockEditor = forwardRef<BlockEditorRef>(function BlockEditor(_, re
     dismiss: () => sheetRef.current?.dismiss(),
   }));
 
-  const handleAdd = async () => {
+  const handleSave = async () => {
     if (!activityRef.current.trim()) return;
     setSaving(true);
     try {
-      await repo.addBlock({
-        logDate: dateRef.current,
-        startHour: hourRef.current,
-        startMinute: nextStartMin,
-        durationMins,
-        activity: activityRef.current.trim(),
-        category,
-      });
+      if (editing) {
+        await repo.updateBlock(editing.id, {
+          activity: activityRef.current.trim(),
+          category,
+          startMinute: startMin,
+          durationMins,
+        });
+        setEditing(null);
+      } else {
+        await repo.addBlock({
+          logDate: dateRef.current,
+          startHour: hourRef.current,
+          startMinute: nextStartMin,
+          durationMins,
+          activity: activityRef.current.trim(),
+          category,
+        });
+      }
       onSavedRef.current();
       await refreshBlocks();
       resetActivity('');
-      // Keep category selected — makes it easy to add several blocks of same type
+      // Keep category for quick multi-add of same type
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
+    if (editing?.id === id) cancelEdit();
     await repo.deleteBlock(id);
     onSavedRef.current();
     await refreshBlocks();
@@ -115,6 +146,7 @@ export const BlockEditor = forwardRef<BlockEditorRef>(function BlockEditor(_, re
     catId ? (categories.find((c) => c.id === catId)?.label ?? catId) : '';
 
   const hour = hourRef.current;
+  const effectiveStartMin = editing ? startMin : nextStartMin;
 
   return (
     <Sheet
@@ -123,8 +155,8 @@ export const BlockEditor = forwardRef<BlockEditorRef>(function BlockEditor(_, re
       snapPoints={['80%']}
       footer={
         <Button
-          label="Add"
-          onPress={handleAdd}
+          label={editing ? 'Save changes' : 'Add'}
+          onPress={handleSave}
           loading={saving}
           disabled={!hasActivity}
         />
@@ -135,12 +167,18 @@ export const BlockEditor = forwardRef<BlockEditorRef>(function BlockEditor(_, re
         const barColor = getCatColor(b.category);
         const catLabel = getCatLabel(b.category);
         const durLabel = b.durationMins < 60 ? `${b.durationMins}m` : `${b.durationMins / 60}h`;
+        const isBeingEdited = editing?.id === b.id;
         return (
           <View
             key={b.id}
             style={[
               styles.blockRow,
-              { backgroundColor: barColor + '18', borderColor: barColor + '55' },
+              {
+                backgroundColor: isBeingEdited
+                  ? barColor + '30'
+                  : barColor + '18',
+                borderColor: isBeingEdited ? barColor : barColor + '55',
+              },
             ]}
           >
             <View style={[styles.colorBar, { backgroundColor: barColor }]} />
@@ -150,15 +188,34 @@ export const BlockEditor = forwardRef<BlockEditorRef>(function BlockEditor(_, re
                 {durLabel}{catLabel ? ` · ${catLabel}` : ''}
               </Text>
             </View>
+            {/* Edit */}
             <Pressable
-              onPress={() => handleDelete(b.id)}
-              hitSlop={12}
+              onPress={() => isBeingEdited ? cancelEdit() : enterEdit(b)}
+              hitSlop={8}
               style={({ pressed }) => [
-                styles.deleteBtn,
-                { backgroundColor: colors.surfaceAlt, opacity: pressed ? 0.5 : 1 },
+                styles.iconBtn,
+                {
+                  backgroundColor: isBeingEdited ? colors.text + '18' : colors.surfaceAlt,
+                  opacity: pressed ? 0.5 : 1,
+                },
               ]}
             >
-              <X size={13} color={colors.textMuted} strokeWidth={2.5} />
+              <Pencil
+                size={13}
+                color={isBeingEdited ? colors.text : colors.textMuted}
+                strokeWidth={2}
+              />
+            </Pressable>
+            {/* Delete */}
+            <Pressable
+              onPress={() => handleDelete(b.id)}
+              hitSlop={8}
+              style={({ pressed }) => [
+                styles.iconBtn,
+                { backgroundColor: '#F7E9E5', opacity: pressed ? 0.5 : 1, marginRight: spacing.sm },
+              ]}
+            >
+              <X size={13} color="#B97A6B" strokeWidth={2.5} />
             </Pressable>
           </View>
         );
@@ -168,9 +225,21 @@ export const BlockEditor = forwardRef<BlockEditorRef>(function BlockEditor(_, re
         <View style={[styles.divider, { backgroundColor: colors.hairline }]} />
       )}
 
-      {/* ── Add form — always visible ───────────────────────────────────── */}
+      {/* ── Form header when editing ────────────────────────────────────── */}
+      {editing ? (
+        <View style={styles.editHeader}>
+          <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
+            Editing block
+          </Text>
+          <Pressable onPress={cancelEdit} hitSlop={8}>
+            <Text variant="caption" color={colors.textMuted}>Cancel</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {/* ── Activity input — always visible ────────────────────────────── */}
       <SheetInput
-        label="What happened?"
+        label={editing ? 'Activity' : 'What happened?'}
         placeholder="e.g. deep work, gym, lunch…"
         value={activitySnapshot}
         onChangeText={onActivityChange}
@@ -190,7 +259,7 @@ export const BlockEditor = forwardRef<BlockEditorRef>(function BlockEditor(_, re
         ))}
       </View>
 
-      {/* Duration chips + auto start hint */}
+      {/* Duration chips + start hint */}
       <View style={styles.durationRow}>
         <View style={styles.chipRow}>
           {DURATIONS.map((d) => (
@@ -203,7 +272,7 @@ export const BlockEditor = forwardRef<BlockEditorRef>(function BlockEditor(_, re
           ))}
         </View>
         <Text variant="caption" color={colors.textFaint} style={styles.startHint}>
-          starts :{nextStartMin.toString().padStart(2, '0')}
+          starts :{effectiveStartMin.toString().padStart(2, '0')}
         </Text>
       </View>
     </Sheet>
@@ -225,19 +294,24 @@ const styles = StyleSheet.create({
   blockInfo: {
     flex: 1,
     paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
+    paddingLeft: spacing.sm,
   },
-  deleteBtn: {
+  iconBtn: {
     width: 28,
     height: 28,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.sm,
+    marginLeft: spacing.sm,
   },
   divider: {
     height: 1,
     marginVertical: spacing.xs,
+  },
+  editHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   chipRow: {
     flexDirection: 'row',

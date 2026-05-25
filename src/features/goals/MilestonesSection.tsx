@@ -12,10 +12,9 @@ import type { Milestone } from './types';
 type Props = {
   goalId: string;
   onProgressChange?: () => void;
-  onInputFocus?: () => void;
 };
 
-export function MilestonesSection({ goalId, onProgressChange, onInputFocus }: Props) {
+export function MilestonesSection({ goalId, onProgressChange }: Props) {
   const themed = useColors();
   const [items, setItems] = useState<Milestone[]>([]);
   const [adding, setAdding] = useState(false);
@@ -136,7 +135,6 @@ export function MilestonesSection({ goalId, onProgressChange, onInputFocus }: Pr
             returnKeyType="done"
             onSubmitEditing={handleAdd}
             onBlur={handleAdd}
-            onFocus={() => onInputFocus?.()}
             style={dynamicStyles.inputText}
           />
         </View>

@@ -143,7 +143,51 @@ export async function addBlock(input: TimeBlockInput): Promise<TimeBlock> {
 
 export async function deleteBlock(id: string): Promise<void> {
   const db = await getDB();
+  // Fetch location before deleting so we can fix up hour_logs afterwards
+  const block = await db.getFirstAsync<{ log_date: string; start_hour: number }>(
+    `SELECT log_date, start_hour FROM time_blocks WHERE id = ?`, [id],
+  );
   await db.runAsync(`DELETE FROM time_blocks WHERE id = ?`, [id]);
+  if (!block) return;
+  // Check how many blocks remain for this hour
+  const remaining = await db.getFirstAsync<{ n: number }>(
+    `SELECT COUNT(*) as n FROM time_blocks WHERE log_date = ? AND start_hour = ?`,
+    [block.log_date, block.start_hour],
+  );
+  if ((remaining?.n ?? 0) === 0) {
+    // No blocks left — clear the hour_logs entry so the row shows as empty
+    await db.runAsync(
+      `DELETE FROM hour_logs WHERE log_date = ? AND hour = ?`,
+      [block.log_date, block.start_hour],
+    );
+  } else {
+    // Re-sync hour_logs to the earliest remaining block
+    const first = await db.getFirstAsync<{ activity: string; category: string | null }>(
+      `SELECT activity, category FROM time_blocks WHERE log_date = ? AND start_hour = ? ORDER BY start_minute ASC LIMIT 1`,
+      [block.log_date, block.start_hour],
+    );
+    if (first) {
+      await upsert(block.log_date, block.start_hour, first.activity, first.category as HourCategory | null);
+    }
+  }
+}
+
+export async function updateBlock(
+  id: string,
+  patch: { activity: string; category: string | null; startMinute: number; durationMins: number },
+): Promise<void> {
+  const db = await getDB();
+  await db.runAsync(
+    `UPDATE time_blocks SET activity = ?, category = ?, start_minute = ?, duration_mins = ? WHERE id = ?`,
+    [patch.activity, patch.category, patch.startMinute, patch.durationMins, id],
+  );
+  // Re-sync hour_logs
+  const block = await db.getFirstAsync<{ log_date: string; start_hour: number }>(
+    `SELECT log_date, start_hour FROM time_blocks WHERE id = ?`, [id],
+  );
+  if (block) {
+    await upsert(block.log_date, block.start_hour, patch.activity, patch.category as HourCategory | null);
+  }
 }
 
 /** Fill contiguous hours with a sleep block — cross-midnight aware. */

@@ -1,11 +1,10 @@
 import React from 'react';
 import { View, Pressable, StyleSheet, Image } from 'react-native';
-import { Calendar, Flag, Sparkles } from 'lucide-react-native';
 import { format, parseISO } from 'date-fns';
 import { Text } from '@/components/Text';
 import { ProgressRing } from '@/components/ProgressRing';
 import { radii, spacing, shadows, useColors, useTheme, resolveTint } from '@/theme';
-import { GOAL_CATEGORY_META } from './types';
+import { GOAL_CATEGORY_META, GOAL_PRIORITY_META } from './types';
 import type { GoalWithStats } from './types';
 
 type Props = {
@@ -13,84 +12,166 @@ type Props = {
   onPress: () => void;
 };
 
+/** Return a color that communicates urgency without alarm. */
+function urgencyColor(daysRemaining: number | null, status: string): string {
+  if (status === 'completed') return 'transparent'; // no badge shown
+  if (daysRemaining === null) return 'transparent';
+  if (daysRemaining < 0) return '#B97A6B';   // overdue — rose
+  if (daysRemaining <= 7) return '#C9664F';  // urgent — terracotta
+  if (daysRemaining <= 30) return '#C4904A'; // approaching — amber
+  return 'transparent'; // plenty of time — no badge
+}
+
+/** Concise days label for card footer. */
+function daysLabel(daysRemaining: number | null, status: string): string {
+  if (status === 'completed') return 'Reached';
+  if (daysRemaining === null) return 'No deadline';
+  if (daysRemaining < 0) return `${Math.abs(daysRemaining)}d overdue`;
+  if (daysRemaining === 0) return 'Due today';
+  if (daysRemaining === 1) return '1 day left';
+  if (daysRemaining <= 30) return `${daysRemaining} days left`;
+  return format(parseISO(new Date(Date.now() + daysRemaining * 86400000).toISOString().slice(0, 10)), 'MMM d, yyyy');
+}
+
+/** Contextual label for progress %. */
+function progressLabel(pct: number, status: string): string {
+  if (status === 'completed') return 'Reached ✓';
+  if (pct === 0) return 'Not started';
+  if (pct <= 25) return 'Just started';
+  if (pct <= 50) return 'Halfway there';
+  if (pct <= 75) return 'Strong progress';
+  if (pct < 100) return 'Nearly there';
+  return 'Done ✓';
+}
+
+const MAX_DOTS = 8;
+
 export function GoalCard({ goal, onPress }: Props) {
   const colors = useColors();
   const { resolved } = useTheme();
 
   const catMeta = goal.category ? GOAL_CATEGORY_META[goal.category] : null;
-  const rawTint = catMeta?.tint;
-  const tint = resolveTint(rawTint, resolved) ?? colors.surfaceAlt;
+  const tint = resolveTint(catMeta?.tint, resolved) ?? colors.surfaceAlt;
+  const udColor = urgencyColor(goal.daysRemaining, goal.status);
+  const showUrgencyBadge = udColor !== 'transparent';
+  const chipBg = resolved === 'light' ? 'rgba(255,255,255,0.78)' : 'rgba(255,255,255,0.14)';
 
-  // Translucent chip bg that works on any theme — uses surface with alpha
-  const chipBg = resolved === 'light'
-    ? 'rgba(255,255,255,0.75)'
-    : 'rgba(255,255,255,0.12)';
-
-  const daysLabel = (() => {
-    if (goal.status === 'completed') return 'Reached';
-    if (goal.daysRemaining === null) return 'No deadline';
-    if (goal.daysRemaining < 0) return `${Math.abs(goal.daysRemaining)} days overdue`;
-    if (goal.daysRemaining === 0) return 'Today';
-    if (goal.daysRemaining === 1) return '1 day left';
-    return `${goal.daysRemaining} days left`;
-  })();
+  // Milestone dots — up to MAX_DOTS
+  const totalDots = Math.min(goal.milestonesTotal, MAX_DOTS);
+  const extraDots = goal.milestonesTotal > MAX_DOTS ? goal.milestonesTotal - MAX_DOTS : 0;
+  const showDots = goal.milestonesTotal > 0;
 
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
-        { backgroundColor: colors.surface, borderColor: colors.hairline },
-        pressed && { opacity: 0.92 },
+        { backgroundColor: colors.surface },
+        pressed && { opacity: 0.88, transform: [{ scale: 0.985 }] },
       ]}
     >
+      {/* ── Hero ──────────────────────────────────────────────────────────── */}
       <View style={[styles.hero, { backgroundColor: tint }]}>
         {goal.heroImageUri ? (
-          <Image source={{ uri: goal.heroImageUri }} style={StyleSheet.absoluteFillObject} />
+          <Image
+            source={{ uri: goal.heroImageUri }}
+            style={StyleSheet.absoluteFillObject}
+            resizeMode="cover"
+          />
         ) : null}
-        <View style={styles.heroTop}>
-          {catMeta ? (
-            <View style={[styles.chip, { backgroundColor: chipBg }]}>
-              <Text variant="caption" color={colors.textSoft}>{catMeta.label.toUpperCase()}</Text>
-            </View>
-          ) : null}
-          {goal.status !== 'active' ? (
-            <View style={[styles.chip, { backgroundColor: chipBg }]}>
-              <Text variant="caption" color={colors.textSoft}>{goal.status.toUpperCase()}</Text>
-            </View>
-          ) : null}
-        </View>
-        <View>
-          <Text variant="h2" color={colors.text} numberOfLines={2}>{goal.title}</Text>
-        </View>
-      </View>
+        {goal.heroImageUri ? <View style={styles.imgOverlay} /> : null}
 
-      <View style={styles.body}>
-        <ProgressRing progress={goal.progress} size={68} strokeWidth={5} color={colors.text} label="%" />
-        <View style={{ flex: 1, gap: 6 }}>
-          <View style={styles.metaRow}>
-            <Calendar size={13} color={colors.textMuted} strokeWidth={1.75} />
-            <Text variant="caption" color={colors.textMuted}>
-              {goal.targetDate ? format(parseISO(goal.targetDate), 'MMM d, yyyy').toUpperCase() : 'NO DEADLINE'}
-            </Text>
-          </View>
-          <Text variant="bodyMedium">{daysLabel}</Text>
-          <View style={styles.statsRow}>
-            {goal.milestonesTotal > 0 ? (
-              <View style={styles.statItem}>
-                <Flag size={11} color={colors.textMuted} strokeWidth={2} />
-                <Text variant="caption" color={colors.textMuted}>
-                  {goal.milestonesDone}/{goal.milestonesTotal} MILESTONES
+        {/* Top chips */}
+        <View style={styles.heroTop}>
+          <View style={{ flexDirection: 'row', gap: spacing.xs, alignItems: 'center' }}>
+            {catMeta ? (
+              <View style={[styles.chip, { backgroundColor: chipBg }]}>
+                <Text variant="caption" color={colors.textSoft}>{catMeta.label}</Text>
+              </View>
+            ) : null}
+            {goal.status !== 'active' ? (
+              <View style={[styles.chip, { backgroundColor: chipBg }]}>
+                <Text variant="caption" color={colors.textSoft}>
+                  {goal.status === 'completed' ? 'Reached' : goal.status === 'paused' ? 'Paused' : 'Let go'}
                 </Text>
               </View>
             ) : null}
-            {goal.linkedHabitsTotal > 0 ? (
-              <View style={styles.statItem}>
-                <Sparkles size={11} color={colors.textMuted} strokeWidth={2} />
-                <Text variant="caption" color={colors.textMuted}>{goal.linkedHabitsTotal} HABITS</Text>
-              </View>
-            ) : null}
           </View>
+          {/* Priority badge — only show "Now" to avoid noise */}
+          {goal.priority === 3 && goal.status === 'active' ? (
+            <View style={[styles.chip, { backgroundColor: '#C9664F22', borderWidth: 1, borderColor: '#C9664F55' }]}>
+              <Text variant="caption" style={{ color: '#C9664F' }}>NOW</Text>
+            </View>
+          ) : null}
+        </View>
+
+        {/* Title — always at bottom of hero */}
+        <Text variant="h2" numberOfLines={2}>{goal.title}</Text>
+      </View>
+
+      {/* ── Progress bar ──────────────────────────────────────────────────── */}
+      <View style={[styles.progressTrack, { backgroundColor: colors.hairline }]}>
+        {goal.progress > 0 ? (
+          <View
+            style={[
+              styles.progressFill,
+              { width: `${goal.progress}%` as any, backgroundColor: colors.text },
+            ]}
+          />
+        ) : null}
+      </View>
+
+      {/* ── Body ──────────────────────────────────────────────────────────── */}
+      <View style={styles.body}>
+        {/* Progress ring + % */}
+        <View style={styles.ringWrap}>
+          <ProgressRing progress={goal.progress} size={60} strokeWidth={4.5} color={colors.text} />
+        </View>
+
+        <View style={styles.meta}>
+          {/* Progress context line */}
+          <Text variant="bodyMedium">
+            {goal.progress}%
+            {'  '}
+            <Text variant="body" color={colors.textSoft}>
+              {progressLabel(goal.progress, goal.status)}
+            </Text>
+          </Text>
+
+          {/* Days + urgency */}
+          <View style={styles.daysRow}>
+            {showUrgencyBadge ? (
+              <View style={[styles.urgencyDot, { backgroundColor: udColor }]} />
+            ) : null}
+            <Text
+              variant="caption"
+              color={showUrgencyBadge ? udColor : colors.textMuted}
+              style={showUrgencyBadge ? { fontWeight: '600' } : undefined}
+            >
+              {daysLabel(goal.daysRemaining, goal.status)}
+            </Text>
+          </View>
+
+          {/* Milestone dots */}
+          {showDots ? (
+            <View style={styles.dotsRow}>
+              {Array.from({ length: totalDots }).map((_, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.dot,
+                    {
+                      backgroundColor:
+                        i < goal.milestonesDone ? colors.text : colors.hairline,
+                    },
+                  ]}
+                />
+              ))}
+              {extraDots > 0 ? (
+                <Text variant="caption" color={colors.textFaint}>+{extraDots}</Text>
+              ) : null}
+            </View>
+          ) : null}
         </View>
       </View>
     </Pressable>
@@ -100,34 +181,71 @@ export function GoalCard({ goal, onPress }: Props) {
 const styles = StyleSheet.create({
   card: {
     borderRadius: radii.xl,
-    borderWidth: 1,
     overflow: 'hidden',
     ...shadows.card,
   },
   hero: {
-    height: 140,
+    height: 156,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
     paddingBottom: spacing.lg,
     justifyContent: 'space-between',
   },
+  imgOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.18)',
+  },
   heroTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   chip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
     borderRadius: radii.pill,
+  },
+  progressTrack: {
+    height: 4,
+    width: '100%',
+  },
+  progressFill: {
+    height: 4,
   },
   body: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.lg,
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
   },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  statsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: 2 },
-  statItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  ringWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  meta: {
+    flex: 1,
+    gap: 5,
+  },
+  daysRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  urgencyDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  dotsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginTop: 2,
+  },
+  dot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
 });

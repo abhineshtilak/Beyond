@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   View,
   ScrollView,
@@ -8,8 +8,6 @@ import {
   Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
-  Keyboard,
-  Platform,
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import {
@@ -54,11 +52,6 @@ export default function GoalDetailScreen() {
   const basicsRef = useRef<GoalBasicsEditorRef>(null);
   const progressSheetRef = useRef<ProgressSheetRef>(null);
   const scrollRef = useRef<ScrollView>(null);
-  // Y of the sections wrapper relative to the ScrollView; lets us turn
-  // section-relative onLayout y values into absolute scroll targets.
-  const sectionsBaseRef = useRef(0);
-  const milestoneOffsetRef = useRef(0);
-  const sectionOffsetsRef = useRef<Record<string, number>>({});
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -78,21 +71,6 @@ export default function GoalDetailScreen() {
     refreshList();
     bump();
   }, [goal, refreshList]);
-
-  const scrollToSection = (key: string) => {
-    // On iOS, KAV "padding" already animates the view up so we wait for it to
-    // finish (~300ms) before scrolling. On Android, KAV is disabled; the system
-    // handles the keyboard natively so we can scroll immediately after a short
-    // settle delay (100ms is enough for the keyboard to start rising).
-    const delay = Platform.OS === 'ios' ? 320 : 100;
-    setTimeout(() => {
-      const localY = sectionOffsetsRef.current[key];
-      if (typeof localY === 'number') {
-        const absoluteY = sectionsBaseRef.current + localY;
-        scrollRef.current?.scrollTo({ y: Math.max(0, absoluteY - 12), animated: true });
-      }
-    }, delay);
-  };
 
   const pickHero = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -164,21 +142,30 @@ export default function GoalDetailScreen() {
     return `${daysRemaining} days to go`;
   })();
 
-  const milestonesLabel = goal.progress > 0 ? `${goal.progress}% complete` : 'Not started yet';
+  const milestonesLabel = (() => {
+    if (goal.status === 'completed') return 'Goal reached ✓';
+    if (goal.progress === 0) return 'Not started yet';
+    if (goal.progress <= 25) return 'Just getting started';
+    if (goal.progress <= 50) return 'Halfway there';
+    if (goal.progress <= 75) return 'Strong progress';
+    if (goal.progress < 100) return 'Nearly there — keep going';
+    return 'Done ✓';
+  })();
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView
         style={{ flex: 1, backgroundColor: colors.bg }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior="padding"
       >
         <ScrollView
           ref={scrollRef}
-          contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}
+          contentContainerStyle={{ paddingBottom: 48 + insets.bottom }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          onScrollBeginDrag={Keyboard.dismiss}
+          keyboardDismissMode="interactive"
+          automaticallyAdjustKeyboardInsets={true}
         >
           {/* HERO */}
           <View style={[styles.hero, { backgroundColor: tint }]}>
@@ -268,89 +255,78 @@ export default function GoalDetailScreen() {
               )}
               <Text variant="smallMedium">{goal.status === 'paused' ? 'Resume' : 'Pause'}</Text>
             </Pressable>
-            <Pressable onPress={handleDelete} style={({ pressed }) => [styles.actionBtn, { backgroundColor: colors.surface, borderColor: colors.hairline }, pressed && { opacity: 0.8 }]}>
-              <Trash2 size={16} color="#B97A6B" strokeWidth={1.8} />
-              <Text variant="smallMedium" color="#B97A6B">Delete</Text>
-            </Pressable>
           </View>
 
-          {/* SECTIONS */}
-          <View
-            style={styles.sections}
-            onLayout={(e) => { sectionsBaseRef.current = e.nativeEvent.layout.y; }}
-          >
-            <View onLayout={(e) => { sectionOffsetsRef.current.why = e.nativeEvent.layout.y; }}>
-              <EditableSection
-                label="Why does this matter"
-                value={goal.why}
-                placeholder="Why this, and why now? The reason has to be larger than your resistance."
-                onSave={(v) => update({ why: v })}
-                onEditStart={() => scrollToSection('why')}
-                tint={colors.surfaceAlt}
-                serif
-              />
-            </View>
-            <View onLayout={(e) => { sectionOffsetsRef.current.feeling = e.nativeEvent.layout.y; }}>
-              <EditableSection
-                label="How it'll feel"
-                value={goal.feeling}
-                placeholder="When you reach this — what does that day look and feel like?"
-                onSave={(v) => update({ feeling: v })}
-                onEditStart={() => scrollToSection('feeling')}
-              />
-            </View>
+          {/* SECTIONS — psychology-first order */}
+          <View style={styles.sections}>
+            {/* 1. Motivation anchor — the WHY must come first */}
+            <EditableSection
+              label="Why does this matter"
+              value={goal.why}
+              placeholder="Why this, and why now? The reason has to be larger than your resistance."
+              onSave={(v) => update({ why: v })}
+              tint={colors.surfaceAlt}
+              serif
+            />
 
-            <View
-              onLayout={(e) => { milestoneOffsetRef.current = e.nativeEvent.layout.y; }}
-            >
-              <MilestonesSection
-                key={`ms-${reloadKey}`}
-                goalId={goal.id}
-                onProgressChange={load}
-                onInputFocus={() => {
-                  const delay = Platform.OS === 'ios' ? 320 : 100;
-                  setTimeout(() => {
-                    scrollRef.current?.scrollTo({
-                      y: Math.max(0, sectionsBaseRef.current + milestoneOffsetRef.current - 12),
-                      animated: true,
-                    });
-                  }, delay);
-                }}
-              />
-            </View>
+            {/* 2. Vivid visualization — make the outcome feel real */}
+            <EditableSection
+              label="How it'll feel"
+              value={goal.feeling}
+              placeholder="When you reach this — what does that day look and feel like?"
+              onSave={(v) => update({ feeling: v })}
+            />
 
-            <View onLayout={(e) => { sectionOffsetsRef.current.procedure = e.nativeEvent.layout.y; }}>
-              <EditableSection
-                label="Action plan"
-                value={goal.procedure}
-                placeholder="The proven procedure. Daily, weekly. What works?"
-                onSave={(v) => update({ procedure: v })}
-                onEditStart={() => scrollToSection('procedure')}
-              />
-            </View>
+            {/* 3. Honest baseline — where are you actually starting from */}
+            <EditableSection
+              label="Where I am now"
+              value={goal.currentPosition}
+              placeholder="The honest baseline. What's true today?"
+              onSave={(v) => update({ currentPosition: v })}
+            />
 
+            {/* 4. Pre-mortem — name obstacles before they stop you */}
+            <EditableSection
+              label="What's in the way"
+              value={goal.problems}
+              placeholder="Obstacles, fears, missing pieces. Name them."
+              onSave={(v) => update({ problems: v })}
+            />
+
+            {/* 5. Milestones — the structured path forward */}
+            <MilestonesSection
+              key={`ms-${reloadKey}`}
+              goalId={goal.id}
+              onProgressChange={load}
+            />
+
+            {/* 6. Daily system — the repeatable process */}
+            <EditableSection
+              label="Action plan"
+              value={goal.procedure}
+              placeholder="The proven procedure. Daily, weekly. What works?"
+              onSave={(v) => update({ procedure: v })}
+            />
+
+            {/* 7. Linked habits & tasks — execution support */}
             <LinkedItemsSection key={`li-${reloadKey}`} goalId={goal.id} />
 
-            <View onLayout={(e) => { sectionOffsetsRef.current.currentPosition = e.nativeEvent.layout.y; }}>
-              <EditableSection
-                label="Where I am now"
-                value={goal.currentPosition}
-                placeholder="The honest baseline. What's true today?"
-                onSave={(v) => update({ currentPosition: v })}
-                onEditStart={() => scrollToSection('currentPosition')}
-              />
-            </View>
-            <View onLayout={(e) => { sectionOffsetsRef.current.problems = e.nativeEvent.layout.y; }}>
-              <EditableSection
-                label="What's in the way"
-                value={goal.problems}
-                placeholder="Obstacles, fears, missing pieces. Name them."
-                onSave={(v) => update({ problems: v })}
-                onEditStart={() => scrollToSection('problems')}
-              />
-            </View>
-
+            {/* 8. Inspiration — ongoing fuel when motivation dips */}
             <InspirationSection key={`ins-${reloadKey}`} goalId={goal.id} />
+
+            {/* DANGER ZONE — separated from content by distance and weight */}
+            <View style={[styles.dangerZone, { borderColor: colors.hairline }]}>
+              <Pressable
+                onPress={handleDelete}
+                style={({ pressed }) => [styles.dangerBtn, pressed && { opacity: 0.6 }]}
+              >
+                <Trash2 size={15} color="#B97A6B" strokeWidth={1.8} />
+                <Text variant="smallMedium" color="#B97A6B">Delete this goal</Text>
+              </Pressable>
+              <Text variant="caption" color={colors.textFaint} style={{ textAlign: 'center', marginTop: spacing.xs }}>
+                Milestones and inspirations will be removed.{'\n'}Linked tasks and habits will be unlinked, not deleted.
+              </Text>
+            </View>
           </View>
         </ScrollView>
 
@@ -413,5 +389,19 @@ const styles = StyleSheet.create({
   sections: {
     paddingHorizontal: spacing.xxl,
     gap: spacing.md,
+  },
+  dangerZone: {
+    marginTop: spacing.xxl,
+    paddingTop: spacing.xl,
+    borderTopWidth: 1,
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  dangerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
 });

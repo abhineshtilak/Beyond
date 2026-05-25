@@ -7,6 +7,7 @@ export type JournalEntry = {
   entryDate: string;          // YYYY-MM-DD (local day, grouping key)
   createdAt: number;          // Date.now()
   updatedAt: number;
+  title: string | null;       // optional entry title
   bodyHtml: string | null;    // rich content
   content: string;            // plain text (search/preview)
   attachments: Attachment[];
@@ -16,6 +17,7 @@ export type JournalEntry = {
 };
 
 export type JournalInput = {
+  title?: string | null;
   bodyHtml?: string | null;
   content?: string;
   attachments?: Attachment[];

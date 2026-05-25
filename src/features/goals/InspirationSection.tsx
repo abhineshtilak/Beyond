@@ -7,7 +7,7 @@ import { Sheet, SheetRef } from '@/components/Sheet';
 import { SheetInput as Input } from '@/components/SheetInput';
 import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
-import { colors, radii, spacing } from '@/theme';
+import { useColors, radii, spacing } from '@/theme';
 import * as repo from './repo';
 import type { Inspiration, InspirationKind } from './types';
 
@@ -20,6 +20,7 @@ const KINDS: { key: InspirationKind; label: string; icon: any }[] = [
 ];
 
 export function InspirationSection({ goalId }: Props) {
+  const colors = useColors();
   const [items, setItems] = useState<Inspiration[]>([]);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [kind, setKind] = useState<InspirationKind>('note');
@@ -85,7 +86,7 @@ export function InspirationSection({ goalId }: Props) {
   };
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
       <View style={styles.head}>
         <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
           Inspiration
@@ -98,7 +99,7 @@ export function InspirationSection({ goalId }: Props) {
       ) : (
         <View style={{ gap: spacing.md, marginTop: spacing.md }}>
           {items.map((it) => (
-            <View key={it.id} style={styles.item}>
+            <View key={it.id} style={[styles.item, { backgroundColor: colors.bg }]}>
               {it.kind === 'image' && it.imageUri ? (
                 <Image source={{ uri: it.imageUri }} style={styles.image} />
               ) : null}
@@ -147,7 +148,10 @@ export function InspirationSection({ goalId }: Props) {
         </View>
 
         {kind === 'image' ? (
-          <Pressable onPress={pickImage} style={styles.imagePicker}>
+          <Pressable
+            onPress={pickImage}
+            style={[styles.imagePicker, { borderColor: colors.hairline, backgroundColor: colors.surface }]}
+          >
             {imageUri ? (
               <Image source={{ uri: imageUri }} style={{ width: '100%', height: 200, borderRadius: radii.md }} />
             ) : (
@@ -173,15 +177,12 @@ export function InspirationSection({ goalId }: Props) {
 
 const styles = StyleSheet.create({
   wrap: {
-    backgroundColor: colors.surface,
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: colors.hairline,
     padding: spacing.lg,
   },
   head: {},
   item: {
-    backgroundColor: colors.bg,
     borderRadius: radii.md,
     overflow: 'hidden',
     position: 'relative',
@@ -216,9 +217,7 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.hairline,
     borderStyle: 'dashed',
-    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,

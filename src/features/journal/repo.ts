@@ -9,6 +9,7 @@ type Row = {
   entry_date: string;
   created_at: number;
   updated_at: number;
+  title: string | null;
   body_html: string | null;
   content: string | null;
   attachments: string | null;
@@ -30,6 +31,7 @@ const toEntry = (r: Row): JournalEntry => ({
   entryDate: r.entry_date,
   createdAt: r.created_at,
   updatedAt: r.updated_at,
+  title: r.title ?? null,
   bodyHtml: r.body_html,
   content: r.content ?? '',
   attachments: parseAtts(r.attachments),
@@ -68,13 +70,14 @@ export async function create(input: JournalInput, date?: string): Promise<Journa
   const now = Date.now();
   const entryDate = date ?? ymd();
   await db.runAsync(
-    `INSERT INTO journal_entries (id, entry_date, created_at, updated_at, body_html, content, attachments, prompt_key, mood, starred)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+    `INSERT INTO journal_entries (id, entry_date, created_at, updated_at, title, body_html, content, attachments, prompt_key, mood, starred)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
     [
       id,
       entryDate,
       now,
       now,
+      input.title?.trim() || null,
       input.bodyHtml ?? null,
       input.content ?? '',
       JSON.stringify(input.attachments ?? []),
@@ -90,6 +93,7 @@ export async function update(id: string, patch: JournalInput): Promise<void> {
   const existing = await get(id);
   if (!existing) return;
   const merged = {
+    title: patch.title !== undefined ? (patch.title?.trim() || null) : existing.title,
     bodyHtml: patch.bodyHtml !== undefined ? patch.bodyHtml : existing.bodyHtml,
     content: patch.content !== undefined ? patch.content : existing.content,
     attachments: patch.attachments !== undefined ? patch.attachments : existing.attachments,
@@ -97,8 +101,9 @@ export async function update(id: string, patch: JournalInput): Promise<void> {
     mood: patch.mood !== undefined ? patch.mood : existing.mood,
   };
   await db.runAsync(
-    `UPDATE journal_entries SET body_html = ?, content = ?, attachments = ?, prompt_key = ?, mood = ?, updated_at = ? WHERE id = ?`,
+    `UPDATE journal_entries SET title = ?, body_html = ?, content = ?, attachments = ?, prompt_key = ?, mood = ?, updated_at = ? WHERE id = ?`,
     [
+      merged.title,
       merged.bodyHtml,
       merged.content,
       JSON.stringify(merged.attachments),

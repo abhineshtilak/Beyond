@@ -149,6 +149,11 @@ async function runMigrations() {
     await db.runAsync(`ALTER TABLE habits ADD COLUMN streak_restored_date TEXT`);
   }
 
+  // Journal entry titles
+  if (!(await columnExists('journal_entries', 'title'))) {
+    await db.runAsync(`ALTER TABLE journal_entries ADD COLUMN title TEXT`);
+  }
+
   // Multi-goal linking junction tables
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS habit_goals (

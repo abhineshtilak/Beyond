@@ -342,7 +342,11 @@ export async function deleteInspiration(id: string): Promise<void> {
 export async function listLinkedTasks(goalId: string) {
   const db = await getDB();
   return db.getAllAsync<{ id: string; title: string; status: string; due_date: string | null }>(
-    `SELECT id, title, status, due_date FROM tasks WHERE goal_id = ? ORDER BY status, created_at DESC`,
+    `SELECT t.id, t.title, t.status, t.due_date
+     FROM task_goals tg
+     JOIN tasks t ON tg.task_id = t.id
+     WHERE tg.goal_id = ?
+     ORDER BY CASE t.status WHEN 'completed' THEN 1 ELSE 0 END, t.created_at DESC`,
     [goalId],
   );
 }
@@ -350,7 +354,11 @@ export async function listLinkedTasks(goalId: string) {
 export async function listLinkedHabits(goalId: string) {
   const db = await getDB();
   return db.getAllAsync<{ id: string; title: string; icon: string; color: string }>(
-    `SELECT id, title, icon, color FROM habits WHERE goal_id = ? AND archived = 0 ORDER BY created_at ASC`,
+    `SELECT h.id, h.title, h.icon, h.color
+     FROM habit_goals hg
+     JOIN habits h ON hg.habit_id = h.id
+     WHERE hg.goal_id = ? AND h.archived = 0
+     ORDER BY h.created_at ASC`,
     [goalId],
   );
 }

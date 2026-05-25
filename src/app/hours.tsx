@@ -85,16 +85,24 @@ export default function HoursScreen() {
   }, [logs]);
 
   // ─── Sleep-aware computed values ───────────────────────────────────────────
-  // Hours whose ONLY content is a Sleep block — these rows are hidden.
+  // Hours whose ONLY content is Sleep — these rows are hidden.
+  // We check both sources so the row disappears as soon as either data set loads:
+  //   • logsByHour (hour_logs)  — loaded by refresh(), arrives fast
+  //   • blocksByHour (time_blocks) — loaded by loadBlocks(), arrives shortly after
   const sleepHours = useMemo(() => {
     const set = new Set<number>();
+    // From hour_logs — instant once refresh() resolves
+    for (const [h, log] of logsByHour) {
+      if (log.activity === 'Sleep') set.add(h);
+    }
+    // From time_blocks — catches hours where blocks are all Sleep
     for (const [h, blocks] of blocksByHour) {
       if (blocks.length > 0 && blocks.every((b) => b.activity === 'Sleep')) {
         set.add(h);
       }
     }
     return set;
-  }, [blocksByHour]);
+  }, [logsByHour, blocksByHour]);
 
   // Total sleep in minutes — current date blocks + cross-midnight blocks on next date
   const sleepMinutes = useMemo(() => {

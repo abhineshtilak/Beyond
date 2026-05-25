@@ -510,8 +510,14 @@ function JournalCard({
           ) : null}
         </View>
 
+        {entry.title ? (
+          <Text variant="h3" numberOfLines={2} style={{ marginBottom: previewText ? 4 : 0 }}>
+            {entry.title}
+          </Text>
+        ) : null}
+
         {previewText ? (
-          <Text variant="body" numberOfLines={6} style={{ lineHeight: 22 }}>
+          <Text variant="body" numberOfLines={entry.title ? 3 : 6} color={entry.title ? colors.textSoft : colors.text} style={{ lineHeight: 22 }}>
             {previewText}
           </Text>
         ) : null}

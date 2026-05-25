@@ -9,7 +9,7 @@ import { Button } from '@/components/Button';
 import { Text } from '@/components/Text';
 import { Chip } from '@/components/Chip';
 import { InlineCalendar } from '@/components/InlineCalendar';
-import { colors, spacing } from '@/theme';
+import { useColors, spacing } from '@/theme';
 import { useGoalsStore } from './store';
 import {
   GOAL_CATEGORY_META,
@@ -25,6 +25,7 @@ export type GoalQuickAddRef = {
 
 export const GoalQuickAdd = forwardRef<GoalQuickAddRef>(function GoalQuickAdd(_, ref) {
   const sheetRef = useRef<SheetRef>(null);
+  const colors = useColors();
   const create = useGoalsStore((s) => s.create);
 
   const {
@@ -136,7 +137,7 @@ export const GoalQuickAdd = forwardRef<GoalQuickAddRef>(function GoalQuickAdd(_,
           <Text variant="caption" color={colors.textMuted} style={styles.sectionLabel}>Target date</Text>
         </View>
         <Pressable onPress={() => setShowCalendar((v) => !v)}>
-          <View style={styles.dateRow}>
+          <View style={[styles.dateRow, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
             <Text variant="body" color={targetDate ? colors.text : colors.textMuted}>
               {targetDate ? format(parseISO(targetDate), 'EEEE, MMMM d, yyyy') : 'No deadline set'}
             </Text>
@@ -170,8 +171,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.surface,
-    borderColor: colors.hairline,
     borderWidth: 1,
     borderRadius: 14,
     paddingHorizontal: spacing.lg,

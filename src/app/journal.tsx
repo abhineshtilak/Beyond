@@ -9,6 +9,7 @@ import {
   Keyboard,
   Alert,
   Modal,
+  TextInput,
 } from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,7 +30,6 @@ import {
 } from 'lucide-react-native';
 import { format, subDays, parseISO } from 'date-fns';
 import { Text } from '@/components/Text';
-import { IconButton } from '@/components/IconButton';
 import { InlineCalendar } from '@/components/InlineCalendar';
 import { VoiceRecorder } from '@/components/VoiceRecorder';
 import { PlaybackWaveform } from '@/components/Waveform';
@@ -41,7 +41,7 @@ import { JOURNAL_PROMPTS } from '@/features/journal/prompts';
 import { ymd } from '@/lib/date';
 import type { Attachment } from '@/components/MediaAttachments';
 
-// ─── Date option helpers ──────────────────────────────────────────────────────
+// ─── Date helpers ─────────────────────────────────────────────────────────────
 function buildDateOptions() {
   const today = new Date();
   return [
@@ -58,7 +58,7 @@ function dateLabelFor(d: string): string {
   if (d === todayStr) return 'Today';
   if (d === yest) return 'Yesterday';
   if (d === dbb) return 'Day before';
-  return format(parseISO(d), 'd MMM, yyyy');
+  return format(parseISO(d), 'd MMM yyyy');
 }
 
 function randomPrompt(excludeIdx: number): { text: string; idx: number } {
@@ -68,9 +68,6 @@ function randomPrompt(excludeIdx: number): { text: string; idx: number } {
   }
   return { text: JOURNAL_PROMPTS[idx], idx };
 }
-
-// ─── Milestone streaks that trigger the celebration ───────────────────────────
-const MILESTONES = new Set([1, 2, 3, 5, 7, 10, 14, 21, 30, 60, 90, 100, 150, 200, 365]);
 
 export default function JournalScreen() {
   const router = useRouter();
@@ -82,23 +79,28 @@ export default function JournalScreen() {
   const editorRef = useRef<RichEditor>(null);
   const idRef = useRef<string | null>(params.id ?? null);
   const lastSavedRef = useRef('');
-  const isNewRef = useRef(!params.id); // true if this started as a new entry
+  const isNewRef = useRef(!params.id);
+
+  // Title — plain state; the title field is isolated so keystroke re-renders are harmless
+  const [title, setTitle] = useState('');
+  const titleRef = useRef(''); // shadow ref so save() can read it without a state dep
+  const handleTitleChange = (t: string) => {
+    titleRef.current = t;
+    setTitle(t);
+  };
 
   const [html, setHtml] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [createdAt, setCreatedAt] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Date selector
   const [selectedDate, setSelectedDate] = useState<string>(params.date ?? ymd());
   const [dateMenuOpen, setDateMenuOpen] = useState(false);
   const [showCalendarPicker, setShowCalendarPicker] = useState(false);
 
-  // Prompts
-  const [promptIdx, setPromptIdx] = useState(-1); // -1 = no prompt active
+  const [promptIdx, setPromptIdx] = useState(-1);
   const [promptText, setPromptText] = useState('');
 
-  // Celebration
   const [showCelebration, setShowCelebration] = useState(false);
   const [celebrationStreak, setCelebrationStreak] = useState(0);
 
@@ -109,21 +111,23 @@ export default function JournalScreen() {
     (async () => {
       const e = await repo.get(params.id!);
       if (e) {
+        setTitle(e.title ?? '');
+        titleRef.current = e.title ?? '';
         setHtml(e.bodyHtml ?? '');
         setAttachments(e.attachments);
         setCreatedAt(e.createdAt);
         setSelectedDate(e.entryDate);
-        lastSavedRef.current = snapshot(e.bodyHtml ?? '', e.attachments);
+        lastSavedRef.current = snapshot(e.title ?? '', e.bodyHtml ?? '', e.attachments);
       }
     })();
   }, [params.id]);
 
-  const snapshot = (h = html, a = attachments) =>
-    JSON.stringify([h, a.map((x) => x.uri).join('|')]);
+  const snapshot = (t = titleRef.current, h = html, a = attachments) =>
+    JSON.stringify([t, h, a.map((x) => x.uri).join('|')]);
 
   const hasContent = useCallback(() => {
     const plain = htmlToPlainText(html).trim();
-    return !!(plain || attachments.length > 0);
+    return !!(titleRef.current.trim() || plain || attachments.length > 0);
   }, [html, attachments]);
 
   const save = useCallback(async (silent = false): Promise<boolean> => {
@@ -132,7 +136,14 @@ export default function JournalScreen() {
     if (!silent) setSaving(true);
     try {
       const plain = htmlToPlainText(html);
-      const input = { bodyHtml: html || null, content: plain, attachments, promptKey: null, mood: null };
+      const input = {
+        title: titleRef.current.trim() || null,
+        bodyHtml: html || null,
+        content: plain,
+        attachments,
+        promptKey: null,
+        mood: null,
+      };
       if (idRef.current) {
         await repo.update(idRef.current, input);
       } else {
@@ -148,7 +159,7 @@ export default function JournalScreen() {
     }
   }, [html, attachments, hasContent, refreshList, selectedDate]);
 
-  // Auto-save
+  // Auto-save on content change
   useEffect(() => {
     if (!hasContent()) return;
     const t = setTimeout(() => save(true), 1500);
@@ -165,14 +176,12 @@ export default function JournalScreen() {
     Keyboard.dismiss();
     const ok = await save();
     if (!ok) { router.back(); return; }
-
-    // Show celebration only for new entries
     if (isNewRef.current) {
       const s = await repo.streak();
       if (s > 0) {
         setCelebrationStreak(s);
         setShowCelebration(true);
-        return; // don't navigate yet — close after celebration
+        return;
       }
     }
     router.back();
@@ -183,7 +192,6 @@ export default function JournalScreen() {
     router.back();
   };
 
-  // Prompt
   const handlePrompt = () => {
     const p = randomPrompt(promptIdx);
     setPromptText(p.text);
@@ -201,14 +209,12 @@ export default function JournalScreen() {
     setPromptIdx(-1);
   };
 
-  // Date selection
   const handleSelectDate = (date: string) => {
     setSelectedDate(date);
     setDateMenuOpen(false);
     setShowCalendarPicker(false);
   };
 
-  // Media
   const onVoiceComplete = (uri: string, duration: number) => {
     setAttachments((a) => [...a, { kind: 'audio', uri, duration }]);
   };
@@ -233,6 +239,7 @@ export default function JournalScreen() {
   };
 
   const dirty = snapshot() !== lastSavedRef.current;
+  const statusText = saving ? 'Saving…' : !hasContent() ? 'Start writing' : dirty ? 'Unsaved' : 'Saved';
 
   return (
     <>
@@ -241,34 +248,34 @@ export default function JournalScreen() {
 
         {/* ── Header ── */}
         <View style={styles.header}>
-          <IconButton icon={ChevronLeft} onPress={handleBack} bg={colors.surface} />
+          <Pressable onPress={handleBack} hitSlop={8} style={[styles.headerBtn, { backgroundColor: colors.surface }]}>
+            <ChevronLeft size={20} color={colors.text} strokeWidth={2} />
+          </Pressable>
 
-          {/* Date selector */}
+          {/* Date pill */}
           <Pressable
             onPress={() => { setDateMenuOpen((v) => !v); setShowCalendarPicker(false); }}
-            style={styles.datePill}
+            style={[styles.datePill, { backgroundColor: colors.surface }]}
             hitSlop={6}
           >
-            <Text variant="bodyMedium">{dateLabelFor(selectedDate)}</Text>
-            <ChevronDown size={14} color={colors.textMuted} strokeWidth={2} />
+            <Text variant="smallMedium" color={colors.textSoft}>{dateLabelFor(selectedDate)}</Text>
+            <ChevronDown size={12} color={colors.textMuted} strokeWidth={2} />
           </Pressable>
 
-          <Pressable
-            onPress={handleDone}
-            hitSlop={8}
-            style={[styles.doneBtn, { backgroundColor: colors.text }, !hasContent() && { opacity: 0.4 }]}
-            disabled={!hasContent()}
-          >
-            <Check size={15} color={colors.bg} strokeWidth={2.5} />
-            <Text variant="smallMedium" color={colors.bg}>Done</Text>
-          </Pressable>
+          {/* Status + Done */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            <Text variant="caption" color={colors.textFaint}>{statusText}</Text>
+            <Pressable
+              onPress={handleDone}
+              hitSlop={8}
+              style={[styles.doneBtn, { backgroundColor: colors.text }, !hasContent() && { opacity: 0.35 }]}
+              disabled={!hasContent()}
+            >
+              <Check size={14} color={colors.bg} strokeWidth={2.5} />
+              <Text variant="smallMedium" color={colors.bg}>Done</Text>
+            </Pressable>
+          </View>
         </View>
-
-        {/* ── Date meta ── */}
-        <Text variant="caption" color={colors.textMuted} style={{ paddingHorizontal: spacing.xxl, marginBottom: spacing.xs }}>
-          {saving ? 'Saving...' : !hasContent() ? 'Start writing' : dirty ? 'Unsaved' : 'Saved'}&nbsp;&nbsp;·&nbsp;&nbsp;
-          {format(parseISO(selectedDate), 'EEEE, MMMM d')}
-        </Text>
 
         {/* ── Date dropdown ── */}
         {dateMenuOpen ? (
@@ -301,10 +308,7 @@ export default function JournalScreen() {
               </Pressable>
               {showCalendarPicker ? (
                 <View style={{ padding: spacing.md }}>
-                  <InlineCalendar
-                    selected={selectedDate}
-                    onSelect={handleSelectDate}
-                  />
+                  <InlineCalendar selected={selectedDate} onSelect={handleSelectDate} />
                 </View>
               ) : null}
             </View>
@@ -313,25 +317,64 @@ export default function JournalScreen() {
 
         <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
           <ScrollView
-            contentContainerStyle={[styles.body, { paddingBottom: 100 + insets.bottom }]}
+            contentContainerStyle={[styles.canvas, { paddingBottom: 48 + insets.bottom }]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            automaticallyAdjustKeyboardInsets={true}
           >
-            {/* ── Active prompt chip ── */}
+            {/* ── Page date stamp ── */}
+            <Text
+              variant="caption"
+              color={colors.textFaint}
+              style={{ textTransform: 'uppercase', letterSpacing: 1, marginBottom: spacing.lg }}
+            >
+              {format(parseISO(selectedDate), 'EEEE, MMMM d, yyyy')}
+            </Text>
+
+            {/* ── Prompt epigraph ── */}
             {promptText ? (
-              <View style={[styles.promptChip, { backgroundColor: colors.lavenderSoft, borderColor: colors.lavender + '44' }]}>
-                <Lightbulb size={14} color={colors.lavender} strokeWidth={1.75} style={{ marginTop: 1 }} />
-                <Text variant="small" color={colors.textSoft} style={{ flex: 1, lineHeight: 18 }}>{promptText}</Text>
-                <Pressable onPress={handleNewPrompt} hitSlop={8}>
-                  <RefreshCw size={14} color={colors.textMuted} strokeWidth={2} />
-                </Pressable>
-                <Pressable onPress={dismissPrompt} hitSlop={8}>
-                  <XIcon size={14} color={colors.textMuted} strokeWidth={2} />
-                </Pressable>
+              <View style={[styles.promptCard, { backgroundColor: colors.lavenderSoft, borderColor: colors.lavender + '33' }]}>
+                <View style={{ flex: 1 }}>
+                  <Lightbulb size={13} color={colors.lavender} strokeWidth={1.75} style={{ marginBottom: 4 }} />
+                  <Text
+                    variant="body"
+                    color={colors.textSoft}
+                    style={{ fontStyle: 'italic', lineHeight: 22 }}
+                  >
+                    {promptText}
+                  </Text>
+                </View>
+                <View style={styles.promptActions}>
+                  <Pressable onPress={handleNewPrompt} hitSlop={10}>
+                    <RefreshCw size={13} color={colors.textMuted} strokeWidth={2} />
+                  </Pressable>
+                  <Pressable onPress={dismissPrompt} hitSlop={10}>
+                    <XIcon size={13} color={colors.textMuted} strokeWidth={2} />
+                  </Pressable>
+                </View>
               </View>
             ) : null}
 
-            {/* ── Editor ── */}
+            {/* ── Title ── */}
+            <TextInput
+              value={title}
+              onChangeText={handleTitleChange}
+              placeholder="Title"
+              placeholderTextColor={colors.textFaint}
+              style={[styles.titleInput, { color: colors.text, fontFamily: fonts.serif }]}
+              returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => editorRef.current?.focusContentEditor()}
+              autoCorrect={false}
+              importantForAutofill="no"
+              multiline={false}
+            />
+
+            {/* ── Divider ── */}
+            <View style={[styles.divider, { backgroundColor: colors.hairline }]} />
+
+            {/* ── Body editor ── */}
             <View style={styles.editorWrap}>
               <RichEditor
                 ref={editorRef}
@@ -345,13 +388,13 @@ export default function JournalScreen() {
                   placeholderColor: colors.textFaint,
                   contentCSSText: `
                     font-family: ${fonts.sans};
-                    font-size: 17px;
-                    line-height: 1.65;
+                    font-size: 16px;
+                    line-height: 1.7;
                     padding: 0 !important;
                   `,
                 }}
                 useContainer={false}
-                initialHeight={360}
+                initialHeight={300}
               />
             </View>
 
@@ -366,41 +409,47 @@ export default function JournalScreen() {
           </ScrollView>
 
           {/* ── Bottom dock ── */}
-          <View style={[styles.bottomBar, { backgroundColor: colors.surface, borderTopColor: colors.hairline, paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
+          <View style={[styles.dock, { backgroundColor: colors.surface, borderTopColor: colors.hairline, paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
+            {/* Formatting toolbar */}
             <RichToolbar
               editor={editorRef}
-              actions={[actions.setBold, actions.setItalic, actions.setUnderline, actions.insertBulletsList, actions.alignLeft, actions.alignCenter]}
-              iconTint={colors.textSoft}
+              actions={[actions.setBold, actions.setItalic, actions.setUnderline, actions.insertBulletsList, actions.insertOrderedList]}
+              iconTint={colors.textMuted}
               selectedIconTint={colors.text}
-              style={[styles.toolbar, { backgroundColor: colors.surface }]}
+              style={[styles.toolbar, { backgroundColor: 'transparent' }]}
             />
+            {/* Thin separator */}
+            <View style={[styles.dockDivider, { backgroundColor: colors.hairline }]} />
+            {/* Media + prompt row */}
             <View style={styles.mediaRow}>
-              <Pressable onPress={pickImage} style={({ pressed }) => [styles.mediaBtn, { backgroundColor: colors.bg, borderColor: colors.hairline }, pressed && { opacity: 0.7 }]}>
-                <ImageIcon size={18} color={colors.textSoft} strokeWidth={1.75} />
+              <Pressable onPress={pickImage} style={({ pressed }) => [styles.mediaBtn, { borderColor: colors.hairline }, pressed && { opacity: 0.6 }]}>
+                <ImageIcon size={17} color={colors.textSoft} strokeWidth={1.75} />
               </Pressable>
-              <Pressable onPress={pickVideo} style={({ pressed }) => [styles.mediaBtn, { backgroundColor: colors.bg, borderColor: colors.hairline }, pressed && { opacity: 0.7 }]}>
-                <VideoIcon size={18} color={colors.textSoft} strokeWidth={1.75} />
+              <Pressable onPress={pickVideo} style={({ pressed }) => [styles.mediaBtn, { borderColor: colors.hairline }, pressed && { opacity: 0.6 }]}>
+                <VideoIcon size={17} color={colors.textSoft} strokeWidth={1.75} />
               </Pressable>
               <View style={{ flex: 1 }}>
                 <VoiceRecorder onComplete={onVoiceComplete} />
               </View>
-              {/* Prompt button */}
               <Pressable
                 onPress={handlePrompt}
                 style={({ pressed }) => [
                   styles.mediaBtn,
-                  { backgroundColor: promptText ? colors.lavenderSoft : colors.bg, borderColor: promptText ? colors.lavender + '66' : colors.hairline },
-                  pressed && { opacity: 0.7 },
+                  {
+                    borderColor: promptText ? colors.lavender + '66' : colors.hairline,
+                    backgroundColor: promptText ? colors.lavenderSoft : 'transparent',
+                  },
+                  pressed && { opacity: 0.6 },
                 ]}
               >
-                <Lightbulb size={18} color={promptText ? colors.lavender : colors.textSoft} strokeWidth={1.75} />
+                <Lightbulb size={17} color={promptText ? colors.lavender : colors.textSoft} strokeWidth={1.75} />
               </Pressable>
             </View>
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
 
-      {/* ── Streak celebration modal ── */}
+      {/* ── Streak celebration ── */}
       <Modal
         visible={showCelebration}
         transparent
@@ -478,37 +527,53 @@ function formatSecs(s: number): string {
 }
 
 const styles = StyleSheet.create({
+  // Header
   header: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-    paddingHorizontal: spacing.xxl, paddingTop: spacing.md, paddingBottom: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
+  },
+  headerBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   datePill: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-    paddingVertical: 6,
+    gap: 4,
+    paddingVertical: 8,
     paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
   },
   doneBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
     borderRadius: radii.pill,
   },
 
   // Date dropdown
   dateMenu: {
     position: 'absolute',
-    top: 100,
-    left: spacing.xxl,
-    right: spacing.xxl,
+    top: 88,
+    left: spacing.lg,
+    right: spacing.lg,
     zIndex: 100,
     borderRadius: radii.xl,
     borderWidth: 1,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.1,
     shadowRadius: 24,
     elevation: 12,
   },
@@ -519,21 +584,44 @@ const styles = StyleSheet.create({
     gap: 2,
   },
 
-  // Prompt chip
-  promptChip: {
+  // Writing canvas
+  canvas: {
+    paddingHorizontal: spacing.xxl,
+    paddingTop: spacing.md,
+  },
+
+  // Prompt epigraph
+  promptCard: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
     gap: spacing.sm,
     padding: spacing.md,
     borderRadius: radii.lg,
     borderWidth: 1,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  promptActions: {
+    gap: spacing.md,
+    paddingTop: 2,
+  },
+
+  // Title
+  titleInput: {
+    fontSize: 28,
+    lineHeight: 36,
+    paddingVertical: 0,
+    includeFontPadding: false,
+    marginBottom: spacing.lg,
+  },
+
+  // Divider between title and body
+  divider: {
+    height: 1,
+    marginBottom: spacing.lg,
   },
 
   // Editor
-  body: { paddingHorizontal: spacing.xxl, paddingTop: spacing.sm, gap: spacing.sm },
-  editorWrap: { minHeight: 360 },
-  attachmentsCol: { gap: spacing.md, marginTop: spacing.sm },
+  editorWrap: { minHeight: 280 },
+  attachmentsCol: { gap: spacing.md, marginTop: spacing.lg },
   imageTile: { borderRadius: radii.lg, overflow: 'hidden', borderWidth: 1, position: 'relative' },
   videoTile: { borderRadius: radii.lg, overflow: 'hidden', borderWidth: 1, height: 220, position: 'relative' },
   videoOverlay: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -543,17 +631,35 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
 
-  // Bottom bar
-  bottomBar: { borderTopWidth: 1, paddingHorizontal: spacing.md, paddingTop: 4, gap: 6 },
-  toolbar: { borderRadius: 0 },
+  // Dock
+  dock: {
+    borderTopWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingTop: 2,
+  },
+  toolbar: {
+    borderRadius: 0,
+    height: 40,
+  },
+  dockDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: spacing.sm,
+  },
   mediaRow: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-    paddingHorizontal: spacing.sm, paddingTop: 4, paddingBottom: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.sm,
+    paddingBottom: 4,
   },
   mediaBtn: {
-    width: 44, height: 44, borderRadius: 22,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     borderWidth: 1,
-    alignItems: 'center', justifyContent: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   // Celebration
