@@ -15,6 +15,36 @@ async function columnExists(table: string, column: string): Promise<boolean> {
 
 async function runMigrations() {
   const db = await getDB();
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS profile (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      name TEXT,
+      pronouns TEXT,
+      birthday TEXT,
+      photo_uri TEXT,
+      created_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    );
+    CREATE TABLE IF NOT EXISTS journal_entries (
+      id TEXT PRIMARY KEY,
+      entry_date TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      title TEXT,
+      body_html TEXT,
+      content TEXT,
+      attachments TEXT,
+      prompt_key TEXT,
+      mood TEXT,
+      starred INTEGER DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_journal_date ON journal_entries(entry_date);
+    CREATE INDEX IF NOT EXISTS idx_journal_created ON journal_entries(created_at);
+  `);
+
   if (!(await columnExists('habits', 'target_days'))) {
     await db.runAsync(`ALTER TABLE habits ADD COLUMN target_days INTEGER DEFAULT 30`);
   }
@@ -234,35 +264,6 @@ async function runMigrations() {
     }
   }
 
-  // Profile + settings tables
-  await db.execAsync(`
-    CREATE TABLE IF NOT EXISTS profile (
-      id INTEGER PRIMARY KEY CHECK (id = 1),
-      name TEXT,
-      pronouns TEXT,
-      birthday TEXT,
-      photo_uri TEXT,
-      created_at INTEGER NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS settings (
-      key TEXT PRIMARY KEY,
-      value TEXT
-    );
-    CREATE TABLE IF NOT EXISTS journal_entries (
-      id TEXT PRIMARY KEY,
-      entry_date TEXT NOT NULL,
-      created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL,
-      body_html TEXT,
-      content TEXT,
-      attachments TEXT,
-      prompt_key TEXT,
-      mood TEXT,
-      starred INTEGER DEFAULT 0
-    );
-    CREATE INDEX IF NOT EXISTS idx_journal_date ON journal_entries(entry_date);
-    CREATE INDEX IF NOT EXISTS idx_journal_created ON journal_entries(created_at);
-  `);
 }
 
 export async function initDB() {

@@ -14,9 +14,11 @@ import { useColors, radii, spacing } from '@/theme';
 
 type Props = {
   onComplete: (uri: string, durationSecs: number) => void;
+  compact?: boolean;
+  onRecordingChange?: (recording: boolean) => void;
 };
 
-export function VoiceRecorder({ onComplete }: Props) {
+export function VoiceRecorder({ onComplete, compact = false, onRecordingChange }: Props) {
   const colors = useColors();
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const [recording, setRecording] = useState(false);
@@ -51,6 +53,7 @@ export function VoiceRecorder({ onComplete }: Props) {
       await recorder.prepareToRecordAsync();
       recorder.record();
       setRecording(true);
+      onRecordingChange?.(true);
     } catch (e) {
       console.warn('record start failed', e);
     }
@@ -62,15 +65,18 @@ export function VoiceRecorder({ onComplete }: Props) {
       const uri = recorder.uri;
       const duration = secs;
       setRecording(false);
+      onRecordingChange?.(false);
       if (uri) onComplete(uri, duration);
     } catch {
       setRecording(false);
+      onRecordingChange?.(false);
     }
   };
 
   const cancel = async () => {
     try { await recorder.stop(); } catch {}
     setRecording(false);
+    onRecordingChange?.(false);
   };
 
   if (!recording) {
@@ -79,26 +85,27 @@ export function VoiceRecorder({ onComplete }: Props) {
         onPress={start}
         style={({ pressed }) => [
           styles.recBtn,
+          compact && styles.recBtnCompact,
           { backgroundColor: colors.surface, borderColor: colors.hairline },
           pressed && { opacity: 0.8 },
         ]}
         hitSlop={6}
       >
-        <Mic size={18} color={colors.text} strokeWidth={1.75} />
+        <Mic size={compact ? 16 : 18} color={colors.text} strokeWidth={1.75} />
       </Pressable>
     );
   }
 
   return (
-    <View style={[styles.recordingBar, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-      <Pressable onPress={cancel} hitSlop={8} style={styles.cancelBtn}>
-        <X size={16} color={colors.textMuted} strokeWidth={2} />
+    <View style={[styles.recordingBar, compact && styles.recordingBarCompact, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+      <Pressable onPress={cancel} hitSlop={8} style={[styles.cancelBtn, compact && styles.smallRoundBtn]}>
+        <X size={compact ? 14 : 16} color={colors.textMuted} strokeWidth={2} />
       </Pressable>
       <View style={{ flex: 1 }}>
         <LiveWaveform recording={recording} durationSecs={secs} />
       </View>
-      <Pressable onPress={stop} hitSlop={8} style={[styles.stopBtn, { backgroundColor: '#C97B6E' }]}>
-        <Square size={14} color={colors.bg} fill={colors.bg} strokeWidth={0} />
+      <Pressable onPress={stop} hitSlop={8} style={[styles.stopBtn, compact && styles.smallRoundBtn, { backgroundColor: '#C97B6E' }]}>
+        <Square size={compact ? 12 : 14} color={colors.bg} fill={colors.bg} strokeWidth={0} />
       </Pressable>
     </View>
   );
@@ -113,6 +120,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  recBtnCompact: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+  },
   recordingBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -122,6 +134,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 4,
     flex: 1,
+  },
+  recordingBarCompact: {
+    minHeight: 34,
+    paddingVertical: 2,
   },
   cancelBtn: {
     width: 36,
@@ -135,5 +151,10 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  smallRoundBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
   },
 });

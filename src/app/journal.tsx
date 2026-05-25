@@ -10,6 +10,7 @@ import {
   Alert,
   Modal,
   TextInput,
+  Platform,
 } from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,9 +25,9 @@ import {
   X as XIcon,
   ChevronDown,
   Lightbulb,
-  RefreshCw,
   Flame,
   Calendar,
+  Type,
 } from 'lucide-react-native';
 import { format, subDays, parseISO } from 'date-fns';
 import { Text } from '@/components/Text';
@@ -100,6 +101,9 @@ export default function JournalScreen() {
 
   const [promptIdx, setPromptIdx] = useState(-1);
   const [promptText, setPromptText] = useState('');
+  const [showFormatBar, setShowFormatBar] = useState(false);
+  const [showMediaBar, setShowMediaBar] = useState(false);
+  const [recordingVoice, setRecordingVoice] = useState(false);
 
   const [showCelebration, setShowCelebration] = useState(false);
   const [celebrationStreak, setCelebrationStreak] = useState(0);
@@ -193,18 +197,29 @@ export default function JournalScreen() {
   };
 
   const handlePrompt = () => {
+    setShowFormatBar(false);
+    setShowMediaBar(false);
     const p = randomPrompt(promptIdx);
     setPromptText(p.text);
     setPromptIdx(p.idx);
+    if (!titleRef.current.trim() || titleRef.current === promptText) {
+      handleTitleChange(p.text);
+    }
   };
 
   const handleNewPrompt = () => {
     const p = randomPrompt(promptIdx);
     setPromptText(p.text);
     setPromptIdx(p.idx);
+    if (!titleRef.current.trim() || titleRef.current === promptText) {
+      handleTitleChange(p.text);
+    }
   };
 
   const dismissPrompt = () => {
+    if (titleRef.current === promptText) {
+      handleTitleChange('');
+    }
     setPromptText('');
     setPromptIdx(-1);
   };
@@ -217,6 +232,13 @@ export default function JournalScreen() {
 
   const onVoiceComplete = (uri: string, duration: number) => {
     setAttachments((a) => [...a, { kind: 'audio', uri, duration }]);
+  };
+  const handleRecordingChange = (recording: boolean) => {
+    setRecordingVoice(recording);
+    if (recording) {
+      setShowFormatBar(false);
+      setShowMediaBar(false);
+    }
   };
   const removeAttachment = (idx: number) => {
     setAttachments((a) => a.filter((_, i) => i !== idx));
@@ -263,8 +285,8 @@ export default function JournalScreen() {
           </Pressable>
 
           {/* Status + Done */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-            <Text variant="caption" color={colors.textFaint}>{statusText}</Text>
+          <View style={styles.headerActions}>
+            <Text variant="caption" color={colors.textFaint} numberOfLines={1} style={styles.statusLabel}>{statusText}</Text>
             <Pressable
               onPress={handleDone}
               hitSlop={8}
@@ -315,13 +337,16 @@ export default function JournalScreen() {
           </>
         ) : null}
 
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
+        >
           <ScrollView
-            contentContainerStyle={[styles.canvas, { paddingBottom: 48 + insets.bottom }]}
+            contentContainerStyle={[styles.canvas, { paddingBottom: 104 + insets.bottom }]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
-            automaticallyAdjustKeyboardInsets={true}
           >
             {/* ── Page date stamp ── */}
             <Text
@@ -332,43 +357,19 @@ export default function JournalScreen() {
               {format(parseISO(selectedDate), 'EEEE, MMMM d, yyyy')}
             </Text>
 
-            {/* ── Prompt epigraph ── */}
-            {promptText ? (
-              <View style={[styles.promptCard, { backgroundColor: colors.lavenderSoft, borderColor: colors.lavender + '33' }]}>
-                <View style={{ flex: 1 }}>
-                  <Lightbulb size={13} color={colors.lavender} strokeWidth={1.75} style={{ marginBottom: 4 }} />
-                  <Text
-                    variant="body"
-                    color={colors.textSoft}
-                    style={{ fontStyle: 'italic', lineHeight: 22 }}
-                  >
-                    {promptText}
-                  </Text>
-                </View>
-                <View style={styles.promptActions}>
-                  <Pressable onPress={handleNewPrompt} hitSlop={10}>
-                    <RefreshCw size={13} color={colors.textMuted} strokeWidth={2} />
-                  </Pressable>
-                  <Pressable onPress={dismissPrompt} hitSlop={10}>
-                    <XIcon size={13} color={colors.textMuted} strokeWidth={2} />
-                  </Pressable>
-                </View>
-              </View>
-            ) : null}
-
             {/* ── Title ── */}
             <TextInput
               value={title}
               onChangeText={handleTitleChange}
-              placeholder="Title"
+              placeholder="Title or prompt"
               placeholderTextColor={colors.textFaint}
-              style={[styles.titleInput, { color: colors.text, fontFamily: fonts.serif }]}
+              style={[styles.titleInput, { color: colors.text, fontFamily: fonts.sansSemi }]}
               returnKeyType="next"
               blurOnSubmit={false}
               onSubmitEditing={() => editorRef.current?.focusContentEditor()}
               autoCorrect={false}
               importantForAutofill="no"
-              multiline={false}
+              multiline
             />
 
             {/* ── Divider ── */}
@@ -388,13 +389,13 @@ export default function JournalScreen() {
                   placeholderColor: colors.textFaint,
                   contentCSSText: `
                     font-family: ${fonts.sans};
-                    font-size: 16px;
-                    line-height: 1.7;
+                    font-size: 18px;
+                    line-height: 1.75;
                     padding: 0 !important;
                   `,
                 }}
                 useContainer={false}
-                initialHeight={300}
+                initialHeight={84}
               />
             </View>
 
@@ -409,41 +410,112 @@ export default function JournalScreen() {
           </ScrollView>
 
           {/* ── Bottom dock ── */}
-          <View style={[styles.dock, { backgroundColor: colors.surface, borderTopColor: colors.hairline, paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
-            {/* Formatting toolbar */}
-            <RichToolbar
-              editor={editorRef}
-              actions={[actions.setBold, actions.setItalic, actions.setUnderline, actions.insertBulletsList, actions.insertOrderedList]}
-              iconTint={colors.textMuted}
-              selectedIconTint={colors.text}
-              style={[styles.toolbar, { backgroundColor: 'transparent' }]}
-            />
-            {/* Thin separator */}
-            <View style={[styles.dockDivider, { backgroundColor: colors.hairline }]} />
-            {/* Media + prompt row */}
-            <View style={styles.mediaRow}>
-              <Pressable onPress={pickImage} style={({ pressed }) => [styles.mediaBtn, { borderColor: colors.hairline }, pressed && { opacity: 0.6 }]}>
-                <ImageIcon size={17} color={colors.textSoft} strokeWidth={1.75} />
-              </Pressable>
-              <Pressable onPress={pickVideo} style={({ pressed }) => [styles.mediaBtn, { borderColor: colors.hairline }, pressed && { opacity: 0.6 }]}>
-                <VideoIcon size={17} color={colors.textSoft} strokeWidth={1.75} />
-              </Pressable>
-              <View style={{ flex: 1 }}>
-                <VoiceRecorder onComplete={onVoiceComplete} />
-              </View>
-              <Pressable
-                onPress={handlePrompt}
-                style={({ pressed }) => [
-                  styles.mediaBtn,
+          <View style={[styles.dock, { bottom: Math.max(insets.bottom, spacing.sm) + 8 }]}>
+            {showFormatBar ? (
+              <View
+                style={[
+                  styles.formatPanel,
                   {
-                    borderColor: promptText ? colors.lavender + '66' : colors.hairline,
-                    backgroundColor: promptText ? colors.lavenderSoft : 'transparent',
+                    backgroundColor: colors.surface,
+                    borderColor: colors.hairline,
                   },
-                  pressed && { opacity: 0.6 },
                 ]}
               >
-                <Lightbulb size={17} color={promptText ? colors.lavender : colors.textSoft} strokeWidth={1.75} />
-              </Pressable>
+                <RichToolbar
+                  editor={editorRef}
+                  actions={[actions.setBold, actions.setItalic, actions.setUnderline, actions.insertBulletsList, actions.insertOrderedList]}
+                  iconTint={colors.textMuted}
+                  selectedIconTint={colors.text}
+                  iconSize={18}
+                  style={[styles.formatToolbar, { backgroundColor: 'transparent' }]}
+                />
+              </View>
+            ) : null}
+            {showMediaBar ? (
+              <View
+                style={[
+                  styles.mediaPanel,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.hairline,
+                  },
+                ]}
+              >
+                <Pressable onPress={() => { setShowMediaBar(false); pickImage(); }} style={({ pressed }) => [styles.panelBtn, { borderColor: colors.hairline }, pressed && styles.pressed]}>
+                  <ImageIcon size={16} color={colors.textSoft} strokeWidth={1.75} />
+                  <Text variant="caption" color={colors.textMuted}>Photo</Text>
+                </Pressable>
+                <Pressable onPress={() => { setShowMediaBar(false); pickVideo(); }} style={({ pressed }) => [styles.panelBtn, { borderColor: colors.hairline }, pressed && styles.pressed]}>
+                  <VideoIcon size={16} color={colors.textSoft} strokeWidth={1.75} />
+                  <Text variant="caption" color={colors.textMuted}>Video</Text>
+                </Pressable>
+              </View>
+            ) : null}
+
+            <View
+              style={[
+                styles.mediaRow,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.hairline,
+                },
+              ]}
+            >
+              {!recordingVoice ? (
+                <>
+                  <Pressable
+                    onPress={() => {
+                      setShowMediaBar(false);
+                      setShowFormatBar((v) => !v);
+                    }}
+                    style={({ pressed }) => [
+                      styles.mediaBtn,
+                      {
+                        borderColor: showFormatBar ? colors.textSoft : colors.hairline,
+                        backgroundColor: showFormatBar ? colors.surfaceAlt : 'transparent',
+                      },
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Type size={16} color={showFormatBar ? colors.text : colors.textSoft} strokeWidth={1.8} />
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      setShowFormatBar(false);
+                      setShowMediaBar((v) => !v);
+                    }}
+                    style={({ pressed }) => [
+                      styles.mediaBtn,
+                      {
+                        borderColor: showMediaBar ? colors.textSoft : colors.hairline,
+                        backgroundColor: showMediaBar ? colors.surfaceAlt : 'transparent',
+                      },
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <ImageIcon size={16} color={showMediaBar ? colors.text : colors.textSoft} strokeWidth={1.75} />
+                  </Pressable>
+                </>
+              ) : null}
+              <View style={styles.voiceSlot}>
+                <VoiceRecorder compact onRecordingChange={handleRecordingChange} onComplete={onVoiceComplete} />
+              </View>
+              {!recordingVoice ? (
+                <Pressable
+                  onPress={handlePrompt}
+                  onLongPress={promptText ? dismissPrompt : undefined}
+                  style={({ pressed }) => [
+                    styles.mediaBtn,
+                    {
+                      borderColor: promptText ? colors.lavender + '66' : colors.hairline,
+                      backgroundColor: promptText ? colors.lavenderSoft : 'transparent',
+                    },
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Lightbulb size={16} color={promptText ? colors.lavender : colors.textSoft} strokeWidth={1.75} />
+                </Pressable>
+              ) : null}
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -533,13 +605,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.md,
+    paddingTop: 6,
+    paddingBottom: spacing.sm,
+    minHeight: 52,
   },
   headerBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -548,16 +621,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingVertical: 8,
+    minHeight: 34,
+    paddingVertical: 6,
     paddingHorizontal: spacing.md,
     borderRadius: radii.pill,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  statusLabel: {
+    width: 72,
+    textAlign: 'right',
   },
   doneBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    minHeight: 34,
     paddingHorizontal: spacing.md,
-    paddingVertical: 8,
+    paddingVertical: 6,
     borderRadius: radii.pill,
   },
 
@@ -590,38 +674,24 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
   },
 
-  // Prompt epigraph
-  promptCard: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    marginBottom: spacing.lg,
-  },
-  promptActions: {
-    gap: spacing.md,
-    paddingTop: 2,
-  },
-
   // Title
   titleInput: {
-    fontSize: 28,
-    lineHeight: 36,
+    fontSize: 24,
+    lineHeight: 31,
     paddingVertical: 0,
     includeFontPadding: false,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
 
   // Divider between title and body
   divider: {
     height: 1,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
 
   // Editor
-  editorWrap: { minHeight: 280 },
-  attachmentsCol: { gap: spacing.md, marginTop: spacing.lg },
+  editorWrap: { minHeight: 84 },
+  attachmentsCol: { gap: spacing.sm, marginTop: 0 },
   imageTile: { borderRadius: radii.lg, overflow: 'hidden', borderWidth: 1, position: 'relative' },
   videoTile: { borderRadius: radii.lg, overflow: 'hidden', borderWidth: 1, height: 220, position: 'relative' },
   videoOverlay: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -633,33 +703,91 @@ const styles = StyleSheet.create({
 
   // Dock
   dock: {
-    borderTopWidth: 1,
-    paddingHorizontal: spacing.md,
-    paddingTop: 2,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 30,
+    pointerEvents: 'box-none',
   },
-  toolbar: {
-    borderRadius: 0,
+  formatPanel: {
+    position: 'absolute',
+    bottom: 60,
+    width: 236,
+    borderWidth: 1,
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 8,
+    zIndex: 20,
+  },
+  formatToolbar: {
     height: 40,
+    borderRadius: radii.pill,
   },
-  dockDivider: {
-    height: StyleSheet.hairlineWidth,
-    marginHorizontal: spacing.sm,
+  mediaPanel: {
+    position: 'absolute',
+    bottom: 60,
+    width: 176,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderRadius: radii.pill,
+    padding: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 8,
+    zIndex: 20,
+  },
+  panelBtn: {
+    flex: 1,
+    height: 34,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
   },
   mediaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    paddingTop: spacing.sm,
-    paddingBottom: 4,
+    gap: 8,
+    width: '88%',
+    maxWidth: 520,
+    height: 52,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 22,
+    elevation: 10,
   },
   mediaBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  voiceSlot: {
+    flex: 1,
+    height: 44,
+    alignItems: 'stretch',
+    justifyContent: 'center',
+  },
+  pressed: {
+    opacity: 0.65,
+    transform: [{ translateY: 1 }],
   },
 
   // Celebration

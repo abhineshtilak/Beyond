@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, ActivityIndicator, AppState, Platform, type AppStateStatus } from 'react-native';
 import { Stack, SplashScreen } from 'expo-router';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import {
@@ -133,7 +133,7 @@ function RootShell() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: themed.bg }}>
-      <SafeAreaProvider>
+      <SafeAreaProvider initialMetrics={initialWindowMetrics}>
         <BottomSheetModalProvider>
           <Stack
             screenOptions={{
