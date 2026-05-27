@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { View, FlatList, Pressable, Image, StyleSheet } from 'react-native';
 import { Stack, useRouter, useFocusEffect } from 'expo-router';
 import { ChevronLeft, Users, Heart, X as CloseIcon } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import { Screen } from '@/components/Screen';
 import { Text } from '@/components/Text';
 import { IconButton } from '@/components/IconButton';

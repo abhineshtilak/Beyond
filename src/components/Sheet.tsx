@@ -108,9 +108,9 @@ export const Sheet = forwardRef<SheetRef, Props>(function Sheet(
     <BottomSheetModal
       ref={ref}
       snapPoints={points}
-      keyboardBehavior="interactive"
+      keyboardBehavior="extend"
       keyboardBlurBehavior="restore"
-      android_keyboardInputMode="adjustPan"
+      android_keyboardInputMode="adjustResize"
       overDragResistanceFactor={0}
       backgroundStyle={backgroundStyle}
       handleIndicatorStyle={{ backgroundColor: colors.inkFaint, width: 40 }}
@@ -153,7 +153,7 @@ export const Sheet = forwardRef<SheetRef, Props>(function Sheet(
         ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        onScrollBeginDrag={Keyboard.dismiss}
+        keyboardDismissMode="on-drag"
       >
         {children}
       </BottomSheetScrollView>

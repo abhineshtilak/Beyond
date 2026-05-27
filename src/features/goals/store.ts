@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { playCompletionSound } from '@/lib/completionSound';
 import * as repo from './repo';
 import type { GoalInput, GoalStatus, GoalWithStats } from './types';
 
@@ -39,6 +40,9 @@ export const useGoalsStore = create<State>((set, get) => ({
   },
   setStatus: async (id, status) => {
     await repo.setStatus(id, status);
+    if (status === 'completed') {
+      playCompletionSound();
+    }
     await get().refresh();
   },
 }));

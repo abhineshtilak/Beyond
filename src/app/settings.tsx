@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, ScrollView, Pressable, Image, StyleSheet, Alert } from 'react-native';
+import { View, ScrollView, Pressable, Image, StyleSheet, Alert, Switch } from 'react-native';
 import { Stack, useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -17,6 +17,8 @@ import {
   Download,
   Upload,
   ShieldCheck,
+  Vibrate,
+  Volume2,
 } from 'lucide-react-native';
 import { Text } from '@/components/Text';
 import { IconButton } from '@/components/IconButton';
@@ -30,6 +32,7 @@ import { exportToFile, importFromFile, isBackupAvailable } from '@/lib/backup';
 import { confirm } from '@/lib/confirm';
 import { useAuthStore } from '@/store/auth';
 import { isAuthAvailable } from '@/lib/auth';
+import { usePreferencesStore } from '@/lib/preferences';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -41,6 +44,8 @@ export default function SettingsScreen() {
 
   const [busy, setBusy] = useState<'export' | 'import' | null>(null);
   const authMode = useAuthStore((s) => s.mode);
+  const hapticsEnabled = usePreferencesStore((s) => s.hapticsEnabled);
+  const setHapticsEnabled = usePreferencesStore((s) => s.setHapticsEnabled);
 
   const AUTH_MODE_LABELS: Record<string, string> = {
     none: 'Off',
@@ -172,6 +177,34 @@ export default function SettingsScreen() {
               <Text variant="small" color={colors.textMuted} style={{ marginTop: spacing.xs }}>
                 Mid is a warm walnut tone — cozy between light and dark.
               </Text>
+            </View>
+          </Section>
+
+          {/* Feedback */}
+          <Section title="Feedback">
+            <View style={[styles.row, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+              <Vibrate size={18} color={colors.textSoft} strokeWidth={1.75} />
+              <View style={{ flex: 1 }}>
+                <Text variant="bodyMedium">Haptics</Text>
+                <Text variant="small" color={colors.textMuted} style={{ marginTop: 2 }}>
+                  Vibration feedback while tapping, selecting, and recording.
+                </Text>
+              </View>
+              <Switch
+                value={hapticsEnabled}
+                onValueChange={setHapticsEnabled}
+                trackColor={{ false: colors.hairline, true: colors.accentSoft }}
+                thumbColor={hapticsEnabled ? colors.accent : colors.textFaint}
+              />
+            </View>
+            <View style={[styles.row, { backgroundColor: colors.surfaceAlt, borderColor: colors.hairline }]}>
+              <Volume2 size={18} color={colors.textSoft} strokeWidth={1.75} />
+              <View style={{ flex: 1 }}>
+                <Text variant="bodyMedium">Completion sound</Text>
+                <Text variant="small" color={colors.textMuted} style={{ marginTop: 2 }}>
+                  A soft tinn sound plays when a habit or goal is completed.
+                </Text>
+              </View>
             </View>
           </Section>
 

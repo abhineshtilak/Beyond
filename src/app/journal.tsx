@@ -28,8 +28,8 @@ import {
   Flame,
   Calendar,
   Type,
-  Mic,
 } from 'lucide-react-native';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { format, subDays, parseISO } from 'date-fns';
 import { Text } from '@/components/Text';
 import { InlineCalendar } from '@/components/InlineCalendar';
@@ -337,13 +337,23 @@ export default function JournalScreen() {
           </>
         ) : null}
 
+        {/*
+          behavior='padding' on both platforms:
+          — iOS: well-known, adds bottom padding to push content up
+          — Android: avoids the 'height' mode which shrinks the root window and
+            causes background tab bars (TabBar uses position:absolute) to also
+            shift even though they're not visible, leaving them stuck mid-screen
+            when the user returns to the tab after dismissing the keyboard.
+        */}
         <KeyboardAvoidingView
           style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior="padding"
           keyboardVerticalOffset={0}
         >
+          {/* ── Scrollable content — text only, no attachments ── */}
           <ScrollView
-            contentContainerStyle={[styles.canvas, { paddingBottom: 100 + insets.bottom }]}
+            style={{ flex: 1 }}
+            contentContainerStyle={styles.canvas}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
@@ -374,7 +384,7 @@ export default function JournalScreen() {
 
             <View style={[styles.divider, { backgroundColor: colors.hairline }]} />
 
-            {/* Body */}
+            {/* Body — text fills all remaining scroll space */}
             <View style={styles.editorWrap}>
               <RichEditor
                 ref={editorRef}
@@ -394,58 +404,75 @@ export default function JournalScreen() {
                   `,
                 }}
                 useContainer={false}
-                initialHeight={84}
+                initialHeight={400}
               />
             </View>
-
-            {/* Attachments — compact strip below text, never interrupts writing */}
-            {attachments.length > 0 ? (
-              <View style={styles.attachmentsStrip}>
-                <View style={[styles.stripDivider, { backgroundColor: colors.hairline }]} />
-                <View style={styles.stripRow}>
-                  {attachments.map((a, i) => (
-                    <CompactAttachment key={`${a.uri}-${i}`} item={a} onRemove={() => removeAttachment(i)} />
-                  ))}
-                </View>
-              </View>
-            ) : null}
           </ScrollView>
 
-          {/* ── Bottom dock ── */}
-          <View style={[styles.dock, { bottom: Math.max(insets.bottom, 8) + 8 }]}>
+          {/* ── Attachment strip — OUTSIDE the scroll so it never squeezes text ── */}
+          {attachments.length > 0 ? (
+            <View style={[styles.attachStrip, { borderTopColor: colors.hairline }]}>
+              {/* Images + videos: horizontal scroll of 80×80 thumbnails */}
+              {attachments.some((a) => a.kind !== 'audio') ? (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.thumbRow}
+                >
+                  {attachments.map((a, i) =>
+                    a.kind !== 'audio' ? (
+                      <CompactAttachment
+                        key={`${a.uri}-${i}`}
+                        item={a}
+                        onRemove={() => removeAttachment(i)}
+                      />
+                    ) : null,
+                  )}
+                </ScrollView>
+              ) : null}
 
-            {/* Format toolbar — floats above the dock row when open */}
-            {showFormatBar && !recordingVoice ? (
-              <View style={[styles.formatPanel, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-                <RichToolbar
-                  editor={editorRef}
-                  actions={[
-                    actions.setBold,
-                    actions.setItalic,
-                    actions.setUnderline,
-                    actions.insertBulletsList,
-                    actions.insertOrderedList,
-                  ]}
-                  iconTint={colors.textMuted}
-                  selectedIconTint={colors.text}
-                  iconSize={18}
-                  style={[styles.formatToolbar, { backgroundColor: 'transparent' }]}
-                />
-              </View>
-            ) : null}
+              {/* Audio: full-width PlaybackWaveform rows (interactive, playable) */}
+              {attachments.map((a, i) =>
+                a.kind === 'audio' ? (
+                  <View key={`${a.uri}-${i}`} style={styles.audioRow}>
+                    <PlaybackWaveform
+                      uri={a.uri}
+                      duration={a.duration}
+                      onDelete={() => removeAttachment(i)}
+                      compact
+                    />
+                  </View>
+                ) : null,
+              )}
+            </View>
+          ) : null}
 
-            {/* Main pill row */}
+          {/* ── Format toolbar — slides in above the dock row ── */}
+          {showFormatBar && !recordingVoice ? (
+            <View style={[styles.formatPanel, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+              <RichToolbar
+                editor={editorRef}
+                actions={[
+                  actions.setBold,
+                  actions.setItalic,
+                  actions.setUnderline,
+                  actions.insertBulletsList,
+                  actions.insertOrderedList,
+                ]}
+                iconTint={colors.textMuted}
+                selectedIconTint={colors.text}
+                iconSize={18}
+                style={[styles.formatToolbar, { backgroundColor: 'transparent' }]}
+              />
+            </View>
+          ) : null}
+
+          {/* ── Dock row — in normal flow, keyboard pushes it up via KAV padding ── */}
+          <View style={[styles.dockWrap, { paddingBottom: Math.max(insets.bottom, 8) + 8 }]}>
             <View style={[styles.dockRow, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-              {recordingVoice ? (
-                /* Recording state fills the whole row */
-                <View style={styles.voiceFullSlot}>
-                  <VoiceRecorder
-                    compact
-                    onRecordingChange={handleRecordingChange}
-                    onComplete={onVoiceComplete}
-                  />
-                </View>
-              ) : (
+
+              {/* Left cluster — hidden while recording so VoiceRecorder gets full width */}
+              {!recordingVoice ? (
                 <>
                   {/* Format toggle */}
                   <DockBtn
@@ -468,16 +495,27 @@ export default function JournalScreen() {
                   <DockBtn onPress={pickVideo}>
                     <VideoIcon size={17} color={colors.textSoft} strokeWidth={1.75} />
                   </DockBtn>
+                </>
+              ) : null}
 
-                  {/* Voice — compact mic button that starts recording inline */}
-                  <View style={styles.voiceCompactSlot}>
-                    <VoiceRecorder
-                      compact
-                      onRecordingChange={handleRecordingChange}
-                      onComplete={onVoiceComplete}
-                    />
-                  </View>
+              {/*
+                VoiceRecorder — ALWAYS MOUNTED (single instance).
+                Two-instance bug was: recordingVoice ? <Recorder A/> : <Recorder B/>
+                React would unmount B, mount A fresh (idle) when recording started,
+                requiring a second tap to actually begin. Now one instance stays alive;
+                we only change its container width and hide the other buttons.
+              */}
+              <View style={[styles.voiceSlot, recordingVoice && { flex: 1 }]}>
+                <VoiceRecorder
+                  compact
+                  onRecordingChange={handleRecordingChange}
+                  onComplete={onVoiceComplete}
+                />
+              </View>
 
+              {/* Right cluster — hidden while recording */}
+              {!recordingVoice ? (
+                <>
                   <View style={[styles.dividerV, { backgroundColor: colors.hairline }]} />
 
                   {/* Prompt */}
@@ -495,7 +533,7 @@ export default function JournalScreen() {
                     />
                   </DockBtn>
                 </>
-              )}
+              ) : null}
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -575,7 +613,7 @@ function DockBtn({
   );
 }
 
-// Compact attachment thumbnail — 80×80 so it never interrupts text flow
+// Compact attachment thumbnail — 80×80 image/video thumb in the attachment strip
 function CompactAttachment({ item, onRemove }: { item: Attachment; onRemove: () => void }) {
   const colors = useColors();
 
@@ -591,34 +629,75 @@ function CompactAttachment({ item, onRemove }: { item: Attachment; onRemove: () 
   }
 
   if (item.kind === 'video') {
-    return (
-      <View style={[styles.thumb, { backgroundColor: '#111', borderColor: colors.hairline }]}>
+    return <VideoAttachment uri={item.uri} duration={item.duration} onRemove={onRemove} />;
+  }
+
+  // Audio — rendered separately as PlaybackWaveform in the audioRow, not here
+  return null;
+}
+
+// Full-screen video player — tap the 80×80 thumbnail to play
+function VideoAttachment({ uri, duration, onRemove }: { uri: string; duration?: number; onRemove: () => void }) {
+  const colors = useColors();
+  const [showPlayer, setShowPlayer] = useState(false);
+
+  const player = useVideoPlayer({ uri }, (p) => {
+    p.loop = false;
+  });
+
+  // Auto-play when modal opens, pause when it closes
+  useEffect(() => {
+    if (showPlayer) {
+      player.play();
+    } else {
+      player.pause();
+    }
+  }, [showPlayer, player]);
+
+  return (
+    <>
+      {/* 80×80 thumbnail — tap to play, X to remove */}
+      <Pressable
+        onPress={() => setShowPlayer(true)}
+        style={[styles.thumb, { backgroundColor: '#111', borderColor: colors.hairline }]}
+      >
         <View style={styles.thumbPlayOverlay}>
           <Play size={20} color="#fff" fill="#fff" />
-          {item.duration ? (
+          {duration ? (
             <Text variant="caption" color="#fff" style={{ fontSize: 9, marginTop: 2 }}>
-              {formatSecs(Math.floor(item.duration))}
+              {formatSecs(Math.floor(duration))}
             </Text>
           ) : null}
         </View>
         <Pressable onPress={onRemove} style={[styles.thumbX, { backgroundColor: colors.bg }]} hitSlop={6}>
           <XIcon size={11} color={colors.text} strokeWidth={2.5} />
         </Pressable>
-      </View>
-    );
-  }
-
-  // Audio — compact horizontal pill
-  return (
-    <View style={[styles.audioPill, { backgroundColor: colors.surfaceAlt, borderColor: colors.hairline }]}>
-      <Mic size={14} color={colors.textSoft} strokeWidth={1.75} />
-      {item.duration ? (
-        <Text variant="caption" color={colors.textSoft}>{formatSecs(Math.round(item.duration))}</Text>
-      ) : null}
-      <Pressable onPress={onRemove} hitSlop={6}>
-        <XIcon size={12} color={colors.textMuted} strokeWidth={2} />
       </Pressable>
-    </View>
+
+      {/* Full-screen player modal */}
+      <Modal
+        visible={showPlayer}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setShowPlayer(false)}
+      >
+        <View style={styles.videoOverlay}>
+          <VideoView
+            player={player}
+            style={styles.videoPlayer}
+            contentFit="contain"
+            nativeControls
+          />
+          <Pressable
+            onPress={() => setShowPlayer(false)}
+            style={styles.videoCloseBtn}
+          >
+            <XIcon size={18} color="#fff" strokeWidth={2.5} />
+          </Pressable>
+        </View>
+      </Modal>
+    </>
   );
 }
 
@@ -685,10 +764,14 @@ const styles = StyleSheet.create({
     gap: 2,
   },
 
-  // Canvas
+  // Canvas — flexGrow:1 makes the content container fill the full ScrollView
+  // height even when content is short, so editorWrap's flex:1 can expand the
+  // editor to fill all remaining space instead of snapping to minHeight only.
   canvas: {
+    flexGrow: 1,
     paddingHorizontal: spacing.xxl,
     paddingTop: spacing.md,
+    paddingBottom: spacing.xl,
   },
   titleInput: {
     fontSize: 24,
@@ -701,16 +784,25 @@ const styles = StyleSheet.create({
     height: 1,
     marginBottom: spacing.md,
   },
-  editorWrap: { minHeight: 84 },
+  // flex:1 expands the editor to fill all remaining canvas height.
+  // minHeight ensures it's never smaller than ~5 visible lines.
+  editorWrap: { flex: 1, minHeight: 200 },
 
-  // Compact attachment strip — sits below all text, never interrupts writing
-  attachmentsStrip: { marginTop: spacing.lg },
-  stripDivider: { height: 1, marginBottom: spacing.md },
-  stripRow: {
+  // Attachment strip — lives OUTSIDE the ScrollView so it never squeezes text.
+  // Text fills all scroll space; media pushes the dock up naturally as you add more.
+  attachStrip: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.xxl,
+    paddingVertical: spacing.sm,
+    gap: spacing.xs,
+  },
+  thumbRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: spacing.sm,
-    paddingBottom: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  audioRow: {
+    paddingVertical: spacing.xs,
   },
 
   // 80×80 image / video thumbnails
@@ -731,38 +823,28 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
 
-  // Audio compact pill
-  audioPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: spacing.md, paddingVertical: 8,
-    borderRadius: radii.pill, borderWidth: 1,
-  },
-
-  // Dock
-  dock: {
-    position: 'absolute',
-    left: 0, right: 0,
+  // Dock wrapper — in normal flex flow; KAV behavior='padding' pushes it above keyboard
+  dockWrap: {
     alignItems: 'center',
-    zIndex: 30,
-    pointerEvents: 'box-none',
+    paddingTop: spacing.xs,
   },
   formatPanel: {
-    position: 'absolute',
-    bottom: 60,
-    width: 240,
+    // In-flow panel just above the dock row
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.xs,
     borderWidth: 1,
     borderRadius: radii.pill,
     paddingHorizontal: spacing.sm,
+    overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.07,
-    shadowRadius: 16,
-    elevation: 8,
-    zIndex: 20,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 6,
   },
   formatToolbar: { height: 40, borderRadius: radii.pill },
 
-  // Main dock row
+  // Main dock pill row
   dockRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -790,18 +872,32 @@ const styles = StyleSheet.create({
     width: 1, height: 22,
     marginHorizontal: 2,
   },
-  voiceCompactSlot: {
-    flex: 1,
+  // Single VoiceRecorder slot — compact (mic-button width) normally,
+  // expands to fill the full row when recording is active.
+  voiceSlot: {
     height: 44,
-    alignItems: 'stretch',
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  voiceFullSlot: {
+
+  // Full-screen video player
+  videoOverlay: {
     flex: 1,
-    height: 44,
-    alignItems: 'stretch',
+    backgroundColor: 'rgba(0,0,0,0.96)',
     justifyContent: 'center',
-    paddingHorizontal: 4,
+    alignItems: 'center',
+  },
+  videoPlayer: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+  },
+  videoCloseBtn: {
+    position: 'absolute',
+    top: 56,
+    right: spacing.xxl,
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center', justifyContent: 'center',
   },
 
   // Celebration

@@ -3,7 +3,7 @@ import { View, FlatList, Pressable, StyleSheet, Image } from 'react-native';
 import { StableTextInput } from '@/components/StableTextInput';
 import { Stack, useRouter, useFocusEffect } from 'expo-router';
 import { format } from 'date-fns';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import {
   ChevronLeft,
   BookOpen,

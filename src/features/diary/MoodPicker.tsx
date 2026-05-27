@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import { Text } from '@/components/Text';
 import { radii, spacing, useColors } from '@/theme';
 import { MOOD_META } from './types';

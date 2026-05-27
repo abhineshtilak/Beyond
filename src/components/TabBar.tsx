@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet, Dimensions } from 'react-native';
 import { initialWindowMetrics } from 'react-native-safe-area-context';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import * as Haptics from '@/lib/haptics';
@@ -18,11 +18,22 @@ const TAB_META: Record<string, { label: string; icon: any }> = {
 // Bar pill height is fixed so React Navigation never has to remeasure it.
 const BAR_HEIGHT = 66;
 
+// Physical screen height — captured once from the display, never changes with
+// keyboard open/close, window resizes, or screen transitions. This is the key
+// difference from Dimensions.get('window').height which shrinks on Android
+// when the keyboard opens (adjustResize), causing bottom:0 to drift upward.
+const SCREEN_H = Dimensions.get('screen').height;
+
 // Bottom inset captured once at launch from the native window — never changes,
 // not affected by keyboard open/close or screen transitions.  Using a ref or
 // useSafeAreaInsets() here is risky because those values shift when the
 // keyboard animates, causing the bar to jump after returning from the journal.
 const BOTTOM_INSET = initialWindowMetrics?.insets.bottom ?? 0;
+
+// Total bottom padding (inset + a little breathing room) and the fixed top
+// offset that places the bar exactly at the physical bottom of the screen.
+const BOTTOM_PAD = BOTTOM_INSET + spacing.sm;
+const WRAP_TOP = SCREEN_H - BAR_HEIGHT - BOTTOM_PAD;
 
 function withAlpha(hex: string, alpha: string) {
   return hex.length === 7 ? `${hex}${alpha}` : hex;
@@ -30,13 +41,12 @@ function withAlpha(hex: string, alpha: string) {
 
 export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const colors = useColors();
-  const bottomPad = BOTTOM_INSET + spacing.sm;
   const shellBg = withAlpha(colors.surface, 'F2');
   const activeBg = withAlpha(colors.accentSoft, 'E6');
   const pressedBg = withAlpha(colors.surfaceAlt, 'B8');
 
   return (
-    <View style={[styles.wrap, { paddingBottom: bottomPad }]}>
+    <View style={styles.wrap}>
       <View
         style={[
           styles.bar,
@@ -106,10 +116,14 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 const styles = StyleSheet.create({
   wrap: {
     position: 'absolute',
+    // Anchor from the TOP using the physical screen height so the bar never
+    // drifts upward when Android's adjustResize shrinks the window on keyboard
+    // open/close — those events don't affect the physical display height.
+    top: WRAP_TOP,
     left: 0,
     right: 0,
-    bottom: 0,
     paddingHorizontal: spacing.lg,
+    paddingBottom: BOTTOM_PAD,
     backgroundColor: 'transparent',
   },
   bar: {

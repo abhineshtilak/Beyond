@@ -25,7 +25,7 @@ import {
   startOfDay,
 } from 'date-fns';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import { Text } from '@/components/Text';
 import { IconButton } from '@/components/IconButton';
 import { useColors, radii, spacing } from '@/theme';

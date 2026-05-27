@@ -308,12 +308,12 @@ export default function HoursScreen() {
                   <Text variant="h2">{totalLogged}</Text>
                   <Text variant="caption" color={colors.textSoft}>HOURS LOGGED</Text>
                 </View>
-                <View style={[styles.stat, { backgroundColor: '#DEE8EF' }]}>
+                <View style={[styles.stat, { backgroundColor: colors.lavenderSoft }]}>
                   <Text variant="h2">{focusedHours}</Text>
                   <Text variant="caption" color={colors.textSoft}>DEEP HOURS</Text>
                 </View>
                 {sleepLabel ? (
-                  <View style={[styles.stat, { backgroundColor: '#E8E0F0' }]}>
+                  <View style={[styles.stat, { backgroundColor: colors.surfaceAlt }]}>
                     <Text variant="h2">{sleepLabel}</Text>
                     <Text variant="caption" color={colors.textSoft}>SLEEP</Text>
                     {sleepSession ? (
@@ -323,7 +323,7 @@ export default function HoursScreen() {
                     ) : null}
                   </View>
                 ) : (
-                  <View style={[styles.stat, { backgroundColor: '#F7E3D9' }]}>
+                  <View style={[styles.stat, { backgroundColor: colors.butterSoft }]}>
                     <Text variant="h2">{24 - totalLogged - sleepHours.size}</Text>
                     <Text variant="caption" color={colors.textSoft}>UNTRACKED</Text>
                   </View>
@@ -358,7 +358,12 @@ export default function HoursScreen() {
                   const blocks = blocksByHour.get(hour) ?? [];
                   const hasBlocks = blocks.length > 0;
                   const filled = !!log;
-                  const catColor = log?.category ? getCategoryColor(log.category) : colors.surface;
+                  // Primary category color — used as accent, NOT as full background
+                  const catColor = hasBlocks
+                    ? getCategoryColor(blocks[0]?.category ?? null)
+                    : log?.category
+                    ? getCategoryColor(log.category)
+                    : null;
 
                   return (
                     <Pressable
@@ -380,13 +385,15 @@ export default function HoursScreen() {
                         style={[
                           styles.hourBlock,
                           {
-                            borderColor: colors.hairline,
-                            backgroundColor: filled ? catColor : colors.surface,
+                            // Surface background always — text is always readable
+                            backgroundColor: colors.surface,
+                            borderColor: catColor ? catColor + '70' : colors.hairline,
                           },
                         ]}
                       >
                         {hasBlocks ? (
                           <View style={{ flex: 1 }}>
+                            {/* Proportional color strips showing each block */}
                             <View style={styles.blockStrips}>
                               {blocks.map((b) => (
                                 <View
@@ -397,19 +404,41 @@ export default function HoursScreen() {
                                   ]}
                                 />
                               ))}
+                              {/* Grey remainder if hour isn't fully filled */}
+                              {blocks.reduce((s, b) => s + b.durationMins, 0) < 60 ? (
+                                <View
+                                  style={[
+                                    styles.blockStrip,
+                                    {
+                                      flex: 60 - blocks.reduce((s, b) => s + b.durationMins, 0),
+                                      backgroundColor: colors.hairline,
+                                    },
+                                  ]}
+                                />
+                              ) : null}
                             </View>
-                            <Text variant="caption" color={colors.textSoft} style={{ marginTop: 4 }} numberOfLines={1}>
+                            <Text
+                              variant="caption"
+                              color={colors.textSoft}
+                              style={{ marginTop: 4 }}
+                              numberOfLines={1}
+                            >
                               {blocks.map((b) => b.activity).join(' · ')}
                             </Text>
                           </View>
                         ) : filled ? (
-                          <View style={{ flex: 1 }}>
-                            <Text variant="body" numberOfLines={1}>{log!.activity}</Text>
-                            {log!.category ? (
-                              <Text variant="caption" color={colors.textSoft} style={{ marginTop: 2 }}>
-                                {getCategoryLabel(log!.category).toUpperCase()}
-                              </Text>
+                          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                            {catColor ? (
+                              <View style={[styles.catDot, { backgroundColor: catColor }]} />
                             ) : null}
+                            <View style={{ flex: 1 }}>
+                              <Text variant="body" numberOfLines={1}>{log!.activity}</Text>
+                              {log!.category ? (
+                                <Text variant="caption" color={colors.textMuted} style={{ marginTop: 1 }}>
+                                  {getCategoryLabel(log!.category)}
+                                </Text>
+                              ) : null}
+                            </View>
                           </View>
                         ) : (
                           <Text variant="body" color={colors.textFaint}>tap to log</Text>
@@ -613,12 +642,18 @@ const styles = StyleSheet.create({
   },
   blockStrips: {
     flexDirection: 'row',
-    height: 8,
+    height: 6,
     borderRadius: radii.sm,
     overflow: 'hidden',
     gap: 1,
   },
   blockStrip: { height: '100%' },
+  catDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    flexShrink: 0,
+  },
   reflectCard: { borderRadius: radii.lg, padding: spacing.lg, marginTop: spacing.md },
   weekGrid: { flexDirection: 'row', justifyContent: 'space-between', gap: 4 },
   weekDay: { flex: 1, alignItems: 'center', gap: 6 },

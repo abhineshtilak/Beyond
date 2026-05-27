@@ -19,22 +19,22 @@ export type HourInput = {
   category: HourCategory | null;
 };
 
+// Tints are medium-saturation colors that read clearly on both dark and light
+// backgrounds — used as block-strip fills, legend dots, and chip accents.
 export const HOUR_CATEGORY_META: Record<HourCategory, { label: string; tint: string }> = {
-  // Core — aligned with task & habit categories
-  work:      { label: 'Work',     tint: '#9EB7C9' },
-  learning:  { label: 'Learning', tint: '#B8A8C9' },
-  health:    { label: 'Health',   tint: '#A8B89F' },
-  personal:  { label: 'Personal', tint: '#EFE7DC' },
-  finance:   { label: 'Finance',  tint: '#EEE4C8' },
-  other:     { label: 'Other',    tint: '#EBDADA' },
-  // Extra hour-specific
-  social:    { label: 'Social',   tint: '#E8D095' },
-  rest:      { label: 'Rest',     tint: '#C9C2B7' },
-  creative:  { label: 'Creative', tint: '#D8A4A4' },
+  work:      { label: 'Work',     tint: '#6A9FB5' },
+  learning:  { label: 'Learning', tint: '#9B87C0' },
+  health:    { label: 'Health',   tint: '#6FA882' },
+  personal:  { label: 'Personal', tint: '#C4A882' },
+  finance:   { label: 'Finance',  tint: '#B8A44C' },
+  other:     { label: 'Other',    tint: '#9A9A9A' },
+  social:    { label: 'Social',   tint: '#D4956A' },
+  rest:      { label: 'Rest',     tint: '#7EB5C5' },
+  creative:  { label: 'Creative', tint: '#C47A7A' },
   // Legacy — kept for existing rows
-  family:    { label: 'Family',   tint: '#E8B4A0' },
-  commute:   { label: 'Commute',  tint: '#DCE5EA' },
-  idle:      { label: 'Wasted',   tint: '#ECC4BB' },
+  family:    { label: 'Family',   tint: '#C48A72' },
+  commute:   { label: 'Commute',  tint: '#8FA8B8' },
+  idle:      { label: 'Wasted',   tint: '#B07070' },
 };
 
 export const HOUR_CATEGORIES: HourCategory[] = [

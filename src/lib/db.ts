@@ -264,6 +264,21 @@ async function runMigrations() {
     }
   }
 
+  // Goal daily logs
+  const db2 = await getDB();
+  await db2.execAsync(`
+    CREATE TABLE IF NOT EXISTS goal_logs (
+      id         TEXT PRIMARY KEY,
+      goal_id    TEXT NOT NULL,
+      log_date   TEXT NOT NULL,
+      content    TEXT NOT NULL,
+      energy     INTEGER DEFAULT 3,
+      created_at INTEGER NOT NULL,
+      FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_goal_logs_goal ON goal_logs(goal_id, created_at DESC);
+  `);
+
 }
 
 export async function initDB() {

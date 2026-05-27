@@ -7,7 +7,7 @@ import {
   AudioModule,
 } from 'expo-audio';
 import { Mic, Square, X } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import { Text } from './Text';
 import { LiveWaveform } from './Waveform';
 import { useColors, radii, spacing } from '@/theme';

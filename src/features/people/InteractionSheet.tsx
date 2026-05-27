@@ -64,7 +64,7 @@ export const InteractionSheet = forwardRef<InteractionSheetRef>(function Interac
       ref={sheetRef}
       title="Log interaction"
       subtitle="How did it go?"
-      snapPoints={['72%']}
+      snapPoints={['100%']}
       footer={<Button label="Log it" onPress={handleSave} loading={saving} />}
     >
       {/* Mood */}
@@ -140,6 +140,7 @@ export const InteractionSheet = forwardRef<InteractionSheetRef>(function Interac
         value={notes}
         onChangeText={setNotes}
         multiline
+        style={{ minHeight: 160 }}
       />
     </Sheet>
   );

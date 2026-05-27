@@ -21,38 +21,46 @@ const C = {
   bgAlt:    '#252119' as const,
   text:     '#F0E8DF' as const,
   muted:    '#8E847A' as const,
+  faint:    '#524944' as const,
   hairline: '#2E2924' as const,
   sage:     '#A8B89F' as const,
   sageTint: '#A8B89F28' as const,
-  faint:    '#52494422' as const,
+  pip:      '#52494422' as const,
 };
 
-// Concat alpha onto a #RRGGBB to make #RRGGBBAA — typed as HexColor.
 const withAlpha = (hex: string, aa: string) => (hex + aa) as `#${string}`;
 
-// ─── Single habit row ─────────────────────────────────────────────────────────
+// ─── Single habit row — tapping toggles done state without opening app ────────
 function HabitRow({ habit }: { habit: WidgetHabit }) {
+  const dotBg = habit.doneToday
+    ? withAlpha(habit.color, 'DD')
+    : withAlpha(habit.color, '26');
+
   return (
     <FlexWidget
       style={{
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 6,
+        paddingVertical: 7,
         paddingHorizontal: 16,
         flexGap: 10,
         width: 'match_parent',
       }}
-      clickAction="OPEN_HABITS"
+      // Per-row action: toggle this habit's log for today.
+      // The widgetTaskHandler receives clickAction="TOGGLE_HABIT"
+      // and clickActionData.id = habit.id, then writes to SQLite
+      // and re-renders the widget — no app launch needed.
+      clickAction="TOGGLE_HABIT"
+      clickActionData={{ id: habit.id }}
+      accessibilityLabel={habit.doneToday ? `${habit.title}: done` : `${habit.title}: tap to mark done`}
     >
-      {/* Habit color dot — filled if done, soft tint if not */}
+      {/* Filled dot when done, colour-tinted ring when pending */}
       <FlexWidget
         style={{
-          width: 20,
-          height: 20,
-          borderRadius: 10,
-          backgroundColor: habit.doneToday
-            ? withAlpha(habit.color, 'DD')
-            : withAlpha(habit.color, '28'),
+          width: 22,
+          height: 22,
+          borderRadius: 11,
+          backgroundColor: dotBg,
           alignItems: 'center',
           justifyContent: 'center',
         }}
@@ -60,9 +68,15 @@ function HabitRow({ habit }: { habit: WidgetHabit }) {
         {habit.doneToday ? (
           <TextWidget
             text="✓"
-            style={{ fontSize: 10, color: '#FFFFFF', fontWeight: '700' }}
+            style={{ fontSize: 11, color: '#FFFFFF', fontWeight: '700' }}
           />
-        ) : null}
+        ) : (
+          // Empty dot shows colour hint so user knows it's tappable
+          <TextWidget
+            text="·"
+            style={{ fontSize: 14, color: withAlpha(habit.color, 'AA'), fontWeight: '700' }}
+          />
+        )}
       </FlexWidget>
 
       {/* Title */}
@@ -72,32 +86,38 @@ function HabitRow({ habit }: { habit: WidgetHabit }) {
           style={{
             fontSize: 13,
             color: habit.doneToday ? C.muted : C.text,
+            fontStyle: habit.doneToday ? 'italic' : 'normal',
           }}
           maxLines={1}
           truncate="END"
         />
       </FlexWidget>
 
+      {/* Status badge */}
       {habit.doneToday ? (
         <TextWidget
-          text="DONE"
-          style={{ fontSize: 9, color: C.muted, fontWeight: '600' }}
+          text="✓"
+          style={{ fontSize: 11, color: C.sage, fontWeight: '700' }}
         />
-      ) : null}
+      ) : (
+        <TextWidget
+          text="○"
+          style={{ fontSize: 11, color: C.faint }}
+        />
+      )}
     </FlexWidget>
   );
 }
 
-// ─── 10-dot progress (replaces %-width bar which isn't supported) ─────────────
+// ─── 10-pip progress bar ───────────────────────────────────────────────────────
 function ProgressPips({ done, total }: { done: number; total: number }) {
-  const ratio = total > 0 ? done / total : 0;
+  const ratio  = total > 0 ? done / total : 0;
   const filled = Math.round(ratio * 10);
-  const pips = Array.from({ length: 10 }, (_, i) => i);
   return (
     <FlexWidget
       style={{
         paddingHorizontal: 16,
-        paddingTop: 6,
+        paddingTop: 4,
         paddingBottom: 10,
         flexDirection: 'row',
         alignItems: 'center',
@@ -105,14 +125,14 @@ function ProgressPips({ done, total }: { done: number; total: number }) {
         width: 'match_parent',
       }}
     >
-      {pips.map((i) => (
+      {Array.from({ length: 10 }, (_, i) => (
         <FlexWidget
           key={i}
           style={{
-            width: 8,
-            height: 4,
+            flex: 1,
+            height: 3,
             borderRadius: 2,
-            backgroundColor: i < filled ? C.sage : C.faint,
+            backgroundColor: i < filled ? C.sage : C.pip,
           }}
         />
       ))}
@@ -128,7 +148,6 @@ function Divider() {
         height: 1,
         width: 'match_parent',
         backgroundColor: C.hairline,
-        marginHorizontal: 16,
       }}
     />
   );
@@ -141,6 +160,7 @@ export function HabitsWidget({ habits, doneCount, totalCount }: Props) {
   const allDone = totalCount > 0 && doneCount === totalCount;
 
   return (
+    // Root: tapping empty areas opens the Habits tab via deep link (native, no JS)
     <FlexWidget
       style={{
         height: 'match_parent',
@@ -148,10 +168,12 @@ export function HabitsWidget({ habits, doneCount, totalCount }: Props) {
         backgroundColor: C.bg,
         borderRadius: 20,
         flexDirection: 'column',
+        overflow: 'hidden',
       }}
-      clickAction="OPEN_HABITS"
+      clickAction="OPEN_URI"
+      clickActionData={{ uri: 'myapp://habits' }}
     >
-      {/* Header */}
+      {/* ── Header ── */}
       <FlexWidget
         style={{
           flexDirection: 'row',
@@ -159,16 +181,16 @@ export function HabitsWidget({ habits, doneCount, totalCount }: Props) {
           justifyContent: 'space-between',
           paddingHorizontal: 16,
           paddingTop: 14,
-          paddingBottom: 10,
+          paddingBottom: 8,
           width: 'match_parent',
         }}
       >
         <FlexWidget style={{ flexDirection: 'row', alignItems: 'center', flexGap: 8 }}>
           <FlexWidget
             style={{
-              width: 28,
-              height: 28,
-              borderRadius: 8,
+              width: 26,
+              height: 26,
+              borderRadius: 7,
               backgroundColor: C.sageTint,
               alignItems: 'center',
               justifyContent: 'center',
@@ -176,7 +198,7 @@ export function HabitsWidget({ habits, doneCount, totalCount }: Props) {
           >
             <TextWidget
               text="◉"
-              style={{ fontSize: 12, color: C.sage, fontWeight: '700' }}
+              style={{ fontSize: 11, color: C.sage, fontWeight: '700' }}
             />
           </FlexWidget>
           <TextWidget
@@ -185,11 +207,12 @@ export function HabitsWidget({ habits, doneCount, totalCount }: Props) {
           />
         </FlexWidget>
 
+        {/* Done / total pill */}
         <FlexWidget
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            flexGap: 4,
+            flexGap: 3,
             backgroundColor: C.bgAlt,
             paddingHorizontal: 10,
             paddingVertical: 4,
@@ -210,14 +233,10 @@ export function HabitsWidget({ habits, doneCount, totalCount }: Props) {
       <Divider />
       <ProgressPips done={doneCount} total={totalCount} />
 
-      {/* Rows */}
+      {/* ── Habit rows ── */}
       {display.length === 0 ? (
         <FlexWidget
-          style={{
-            paddingHorizontal: 16,
-            paddingVertical: 10,
-            width: 'match_parent',
-          }}
+          style={{ paddingHorizontal: 16, paddingVertical: 12, width: 'match_parent' }}
         >
           <TextWidget
             text="No habits yet. Add one in Beyond."
@@ -229,7 +248,7 @@ export function HabitsWidget({ habits, doneCount, totalCount }: Props) {
       )}
 
       {hidden > 0 && (
-        <FlexWidget style={{ paddingHorizontal: 16, paddingVertical: 4 }}>
+        <FlexWidget style={{ paddingHorizontal: 16, paddingBottom: 4 }}>
           <TextWidget
             text={`+${hidden} more`}
             style={{ fontSize: 11, color: C.muted }}
@@ -237,19 +256,21 @@ export function HabitsWidget({ habits, doneCount, totalCount }: Props) {
         </FlexWidget>
       )}
 
-      {/* Spacer + footer */}
+      {/* ── Spacer ── */}
       <FlexWidget style={{ flex: 1 }} />
+
+      {/* ── Footer ── */}
       <Divider />
       <FlexWidget
         style={{
           paddingHorizontal: 16,
           paddingVertical: 10,
-          flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',
           width: 'match_parent',
         }}
-        clickAction="OPEN_HABITS"
+        clickAction="OPEN_URI"
+        clickActionData={{ uri: 'myapp://habits' }}
       >
         <TextWidget
           text={allDone ? 'All done today 🌿' : 'Open Beyond →'}

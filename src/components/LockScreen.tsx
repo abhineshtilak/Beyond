@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Fingerprint, ScanFace, Delete } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import { Text } from '@/components/Text';
 import { spacing, radii, fonts, useColors, useTheme } from '@/theme';
 import {

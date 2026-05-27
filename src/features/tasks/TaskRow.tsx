@@ -3,7 +3,7 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import { Swipeable, RectButton } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { Trash2, CalendarClock, Check } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import { format, parseISO, isToday, isTomorrow, isPast } from 'date-fns';
 import { Checkbox } from '@/components/Checkbox';
 import { Text } from '@/components/Text';

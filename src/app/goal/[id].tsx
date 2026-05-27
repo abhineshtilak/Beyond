@@ -8,6 +8,7 @@ import {
   Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import {
@@ -28,6 +29,7 @@ import { ProgressRing } from '@/components/ProgressRing';
 import { EditableSection } from '@/components/EditableSection';
 import { radii, spacing, useColors, useTheme, resolveTint } from '@/theme';
 import { confirm } from '@/lib/confirm';
+import { playCompletionSound } from '@/lib/completionSound';
 import * as repo from '@/features/goals/repo';
 import { useGoalsStore } from '@/features/goals/store';
 import { GOAL_CATEGORY_META, GOAL_PRIORITY_META, GOAL_STATUS_META } from '@/features/goals/types';
@@ -35,6 +37,7 @@ import type { Goal } from '@/features/goals/types';
 import { MilestonesSection } from '@/features/goals/MilestonesSection';
 import { LinkedItemsSection } from '@/features/goals/LinkedItemsSection';
 import { InspirationSection } from '@/features/goals/InspirationSection';
+import { GoalLogsSection } from '@/features/goals/GoalLogsSection';
 import { GoalBasicsEditor, GoalBasicsEditorRef } from '@/features/goals/GoalBasicsEditor';
 import { ProgressSheet, ProgressSheetRef } from '@/features/goals/ProgressSheet';
 
@@ -119,6 +122,7 @@ export default function GoalDetailScreen() {
   const markComplete = async () => {
     if (!goal) return;
     await update({ status: 'completed', manualProgress: 100 });
+    playCompletionSound();
   };
 
   if (loading || !goal) {
@@ -157,7 +161,7 @@ export default function GoalDetailScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView
         style={{ flex: 1, backgroundColor: colors.bg }}
-        behavior="padding"
+        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
       >
         <ScrollView
           ref={scrollRef}
@@ -165,7 +169,6 @@ export default function GoalDetailScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
-          automaticallyAdjustKeyboardInsets={true}
         >
           {/* HERO */}
           <View style={[styles.hero, { backgroundColor: tint }]}>
@@ -300,7 +303,10 @@ export default function GoalDetailScreen() {
               onProgressChange={load}
             />
 
-            {/* 6. Daily system — the repeatable process */}
+            {/* 6. Progress Log — measure results, course correct */}
+            <GoalLogsSection key={`logs-${reloadKey}`} goalId={goal.id} />
+
+            {/* 7. Daily system — the repeatable process */}
             <EditableSection
               label="Action plan"
               value={goal.procedure}
@@ -308,10 +314,10 @@ export default function GoalDetailScreen() {
               onSave={(v) => update({ procedure: v })}
             />
 
-            {/* 7. Linked habits & tasks — execution support */}
+            {/* 8. Linked habits & tasks — execution support */}
             <LinkedItemsSection key={`li-${reloadKey}`} goalId={goal.id} />
 
-            {/* 8. Inspiration — ongoing fuel when motivation dips */}
+            {/* 9. Inspiration — ongoing fuel when motivation dips */}
             <InspirationSection key={`ins-${reloadKey}`} goalId={goal.id} />
 
             {/* DANGER ZONE — separated from content by distance and weight */}

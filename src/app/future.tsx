@@ -4,7 +4,7 @@ import { Stack, useRouter, useFocusEffect } from 'expo-router';
 import { ChevronLeft, Compass, Calendar as CalIcon, X as CloseIcon } from 'lucide-react-native';
 import { SelectionDeleteBtn } from '@/components/SelectionDeleteBtn';
 import { format, parseISO } from 'date-fns';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import { Screen } from '@/components/Screen';
 import { Text } from '@/components/Text';
 import { IconButton } from '@/components/IconButton';

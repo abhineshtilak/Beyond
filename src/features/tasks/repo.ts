@@ -2,6 +2,7 @@ import { getDB, uid } from '@/lib/db';
 import { ymd } from '@/lib/date';
 import { recalcProgress as recalcGoalProgress } from '@/features/goals/repo';
 import * as notifications from '@/lib/notifications';
+import { refreshWidgets } from '@/widgets/refresh';
 import type { Task, TaskInput, TaskStatus } from './types';
 
 type Row = {
@@ -199,6 +200,8 @@ export async function setStatus(id: string, status: TaskStatus): Promise<void> {
     }
   }
   await recalcAllTaskGoals(id);
+  // Push fresh data to the home-screen widget (fire-and-forget)
+  refreshWidgets('tasks');
 }
 
 export async function postponeTask(id: string, toDate: string): Promise<void> {

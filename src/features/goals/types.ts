@@ -83,6 +83,15 @@ export const GOAL_PRIORITY_META: Record<GoalPriority, { label: string; tint: str
   3: { label: 'Now',     tint: '#EBDADA' },   // roseSoft
 };
 
+export type GoalLog = {
+  id: string;
+  goalId: string;
+  logDate: string;
+  content: string;
+  energy: 1 | 2 | 3 | 4;  // 1=struggling 2=okay 3=good 4=great
+  createdAt: number;
+};
+
 export const GOAL_STATUS_META: Record<GoalStatus, { label: string; tint: string }> = {
   active:    { label: 'Active',    tint: '#E3E8DE' },   // sageSoft
   paused:    { label: 'Paused',    tint: '#EFE7DC' },   // surfaceAlt

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { StableTextInput } from '@/components/StableTextInput';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import { Plus, X, Flag } from 'lucide-react-native';
 import { Text } from '@/components/Text';
 import { Checkbox } from '@/components/Checkbox';

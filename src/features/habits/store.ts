@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { ymd } from '@/lib/date';
+import { playCompletionSound } from '@/lib/completionSound';
 import * as repo from './repo';
 import type { HabitInput, HabitWithStats } from './types';
 
@@ -42,6 +43,9 @@ export const useHabitsStore = create<State>((set, get) => ({
     const habit = get().habits.find((h) => h.id === id);
     if (!habit) return;
     const nowDone = await repo.toggleCheckIn(id, today);
+    if (nowDone) {
+      playCompletionSound();
+    }
     const nextDates = new Set(habit.doneDates);
     if (nowDone) nextDates.add(today);
     else nextDates.delete(today);

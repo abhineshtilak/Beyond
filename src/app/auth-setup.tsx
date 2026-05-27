@@ -18,7 +18,7 @@ import {
   Check,
   ShieldCheck,
 } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import { Text } from '@/components/Text';
 import { IconButton } from '@/components/IconButton';
 import { spacing, radii, fonts, useColors } from '@/theme';

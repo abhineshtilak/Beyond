@@ -82,6 +82,7 @@ export default function PersonScreen() {
 
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [contactedFlash, setContactedFlash] = useState(false);
   const lastSavedRef = useRef<string>('');
 
   const snapshot = () =>
@@ -199,7 +200,11 @@ export default function PersonScreen() {
   };
 
   const markContactedToday = async () => {
+    // Update local state — the auto-save effect will persist it within 1.5s.
+    // Also write directly to DB for instant durability (no dependency on save timing).
     setLastContactDate(ymd());
+    setContactedFlash(true);
+    setTimeout(() => setContactedFlash(false), 2000);
     if (idRef.current) {
       await repo.markContacted(idRef.current);
     }
@@ -368,15 +373,27 @@ export default function PersonScreen() {
                 ))}
               </View>
               {contactReminderDays ? (
-                <View style={styles.lastContactRow}>
+                <View style={[styles.lastContactRow, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <CalIcon size={14} color={colors.textMuted} strokeWidth={1.75} />
                     <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
-                      Last contact: {lastContactDate ? format(parseISO(lastContactDate), 'MMM d, yyyy') : 'Never'}
+                      {lastContactDate ? format(parseISO(lastContactDate), 'MMM d') : 'Never'}
                     </Text>
                   </View>
-                  <Pressable onPress={markContactedToday} hitSlop={6}>
-                    <Text variant="smallMedium" color={colors.text}>I REACHED OUT TODAY</Text>
+                  <Pressable
+                    onPress={markContactedToday}
+                    hitSlop={12}
+                    style={({ pressed }) => [
+                      styles.contactedBtn,
+                      {
+                        backgroundColor: contactedFlash ? colors.text : colors.surfaceAlt,
+                        opacity: pressed ? 0.75 : 1,
+                      },
+                    ]}
+                  >
+                    <Text variant="caption" color={contactedFlash ? colors.bg : colors.textSoft}>
+                      {contactedFlash ? '✓ Logged' : 'I reached out today'}
+                    </Text>
                   </Pressable>
                 </View>
               ) : null}
@@ -559,5 +576,10 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: radii.pill,
     borderWidth: 1,
+  },
+  contactedBtn: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
   },
 });

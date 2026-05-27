@@ -12,11 +12,12 @@ import { radii, spacing, fonts, useColors } from '@/theme';
 import * as hoursRepo from '@/features/hours/repo';
 import type { HourCategoryRow } from '@/features/hours/types';
 
+// Medium-saturation colors that read clearly on both dark and light surfaces
 const PICKER_COLORS = [
-  '#A8B89F', '#9EB7C9', '#B8A8C9', '#E8B4A0', '#E8D095',
-  '#D8A4A4', '#C9C2B7', '#8FAF9F', '#7FA0B0', '#A090B8',
-  '#D09878', '#C8D088', '#90B8D0', '#B0C8A0', '#D0A8C0',
-  '#AA8870', '#7090A0', '#A0AA80', '#906080', '#707890',
+  '#6FA882', '#6A9FB5', '#9B87C0', '#C47A7A', '#D4956A',
+  '#B8A44C', '#7EB5C5', '#C4A882', '#8FA8B8', '#9A9A9A',
+  '#5B9E6E', '#5889A0', '#7A6AAD', '#B86060', '#C07840',
+  '#9A8830', '#5FA0B0', '#A88860', '#7090A8', '#808080',
 ];
 
 type EditingRow = { id: string | null; label: string; color: string };

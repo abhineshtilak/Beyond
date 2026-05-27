@@ -2,6 +2,7 @@ import { getDB, uid } from '@/lib/db';
 import { ymd } from '@/lib/date';
 import { subDays, differenceInCalendarDays } from 'date-fns';
 import * as notifications from '@/lib/notifications';
+import { refreshWidgets } from '@/widgets/refresh';
 import type { Habit, HabitInput, HabitWithStats, HabitIconKey } from './types';
 
 type Row = {
@@ -189,6 +190,7 @@ export async function toggleCheckIn(habitId: string, date: string = ymd()): Prom
   if (existing) {
     await db.runAsync(`DELETE FROM habit_logs WHERE id = ?`, [existing.id]);
     await recalcLinkedGoals(habitId);
+    refreshWidgets('habits');
     return false;
   }
   await db.runAsync(
@@ -216,6 +218,8 @@ export async function toggleCheckIn(habitId: string, date: string = ymd()): Prom
   const streak = computeStreak(doneDates);
   maybeAwardMilestoneCredit(habitId, streak).catch(() => {});
   maybeAwardRandomCredit(habitId).catch(() => {});
+  // Push fresh data to the home-screen widget (fire-and-forget)
+  refreshWidgets('habits');
   return true;
 }
 

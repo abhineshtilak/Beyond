@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet, TextInput, type ViewProps } from 'react-native';
 import { ChevronRight, Plus, Check } from 'lucide-react-native';
 import { Text } from './Text';
 import { StableTextInput } from './StableTextInput';
@@ -9,35 +9,39 @@ type Props = {
   label: string;
   value?: string | null;
   placeholder: string;
-  /**
-   * Called when the user finishes editing (input blurred or "Done" tapped).
-   * Receives the trimmed value or null if empty.
-   */
   onSave: (value: string | null) => Promise<void> | void;
   tint?: string;
   serif?: boolean;
-  /**
-   * Optional. Called when entering edit mode, so the parent can scroll
-   * this section into view above the keyboard.
-   */
   onEditStart?: () => void;
+  onLayout?: ViewProps['onLayout'];
 };
 
 export function EditableSection({
-  label, value, placeholder, onSave, tint, serif, onEditStart,
+  label, value, placeholder, onSave, tint, serif, onEditStart, onLayout,
 }: Props) {
   const colors = useColors();
   const [editing, setEditing] = useState(false);
-  // draft lives in a ref — typing never re-renders this component,
-  // which is critical for smooth IME behaviour on Android.
   const draftRef = useRef(value ?? '');
-  // Guard so blur + Done press don't both try to save.
   const savingRef = useRef(false);
+  // Ref to the native input — we focus it manually (not via autoFocus)
+  // so that layout settles before the keyboard appears.
+  const inputRef = useRef<TextInput>(null);
 
-  // Keep the draft in sync with external value while NOT editing.
+  // Keep draft in sync with external value while not editing.
   useEffect(() => {
     if (!editing) draftRef.current = value ?? '';
   }, [value, editing]);
+
+  // Focus AFTER layout — one rAF gives React time to commit the card-swap
+  // layout before the keyboard animation starts. This is what separates the
+  // layout reflow from the scroll animation, making both feel instant.
+  useEffect(() => {
+    if (!editing) return;
+    const id = requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(id);
+  }, [editing]);
 
   const filled = !!(value && value.trim());
 
@@ -59,13 +63,8 @@ export function EditableSection({
   if (editing) {
     return (
       <View
-        style={[
-          styles.card,
-          {
-            backgroundColor: tint ?? colors.surface,
-            borderColor: colors.accent,
-          },
-        ]}
+        onLayout={onLayout}
+        style={[styles.card, { backgroundColor: tint ?? colors.surface, borderColor: colors.accent }]}
       >
         <View style={styles.head}>
           <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
@@ -74,23 +73,17 @@ export function EditableSection({
           <Pressable
             onPress={finishEdit}
             hitSlop={10}
-            style={({ pressed }) => [
-              styles.doneBtn,
-              { backgroundColor: colors.text },
-              pressed && { opacity: 0.8 },
-            ]}
+            style={({ pressed }) => [styles.doneBtn, { backgroundColor: colors.text }, pressed && { opacity: 0.8 }]}
           >
             <Check size={12} color={colors.bg} strokeWidth={2.5} />
             <Text variant="caption" color={colors.bg}>DONE</Text>
           </Pressable>
         </View>
         <StableTextInput
-          // defaultValue (read on mount) — typing does NOT re-render
-          // this component because draft lives in a ref.
+          ref={inputRef}
           defaultValue={draftRef.current}
           onChangeText={(t) => { draftRef.current = t; }}
           onBlur={finishEdit}
-          autoFocus
           autoCorrect={false}
           multiline
           placeholder={placeholder}
@@ -114,6 +107,7 @@ export function EditableSection({
 
   return (
     <Pressable
+      onLayout={onLayout}
       onPress={() => {
         draftRef.current = value ?? '';
         setEditing(true);
@@ -121,10 +115,7 @@ export function EditableSection({
       }}
       style={({ pressed }) => [
         styles.card,
-        {
-          backgroundColor: tint ?? colors.surface,
-          borderColor: colors.hairline,
-        },
+        { backgroundColor: tint ?? colors.surface, borderColor: colors.hairline },
         pressed && { opacity: 0.85 },
       ]}
     >

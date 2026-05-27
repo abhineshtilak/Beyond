@@ -3,7 +3,7 @@ import { View, ScrollView, Pressable, StyleSheet, RefreshControl } from 'react-n
 import { Stack, useRouter, useFocusEffect } from 'expo-router';
 import { ChevronLeft, NotebookPen, Trash2, X as CloseIcon } from 'lucide-react-native';
 import { format, parseISO, isToday, isYesterday } from 'date-fns';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import { Screen } from '@/components/Screen';
 import { Text } from '@/components/Text';
 import { Card } from '@/components/Card';

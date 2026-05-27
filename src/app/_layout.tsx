@@ -21,6 +21,7 @@ import { useAppStore } from '@/store';
 import { colors, ThemeProvider, useColors } from '@/theme';
 import { useAuthStore } from '@/store/auth';
 import { LockScreen } from '@/components/LockScreen';
+import { usePreferencesStore } from '@/lib/preferences';
 
 configureHandler();
 
@@ -41,6 +42,7 @@ export default function RootLayout() {
   const setDbReady = useAppStore((s) => s.setDbReady);
   const initAuth = useAuthStore((s) => s.initAuth);
   const authReady = useAuthStore((s) => s.authReady);
+  const loadPreferences = usePreferencesStore((s) => s.load);
 
   useEffect(() => {
     initDB()
@@ -53,8 +55,11 @@ export default function RootLayout() {
 
   // Init auth after DB is ready (SecureStore is independent, but keeps ordering clean)
   useEffect(() => {
-    if (dbReady) initAuth();
-  }, [dbReady, initAuth]);
+    if (dbReady) {
+      initAuth();
+      loadPreferences();
+    }
+  }, [dbReady, initAuth, loadPreferences]);
 
   const ready = interLoaded && frauncesLoaded && dbReady && authReady;
 
@@ -80,26 +85,12 @@ export default function RootLayout() {
 // How long the app must be in background before re-locking (ms)
 const LOCK_AFTER_BG_MS = 30_000;
 
-// Ask Android to re-render both widgets with fresh data.
-// Wrapped in try/catch so Expo Go (where the native module is missing) no-ops.
-async function refreshWidgets() {
-  if (Platform.OS !== 'android') return;
-  try {
-    const { requestWidgetUpdate } = await import('react-native-android-widget');
-    const { renderTasksJSX, renderHabitsJSX } = await import('@/widgets/widgetTaskHandler');
-    await Promise.all([
-      requestWidgetUpdate({
-        widgetName: 'Tasks',
-        renderWidget: () => renderTasksJSX(),
-      }),
-      requestWidgetUpdate({
-        widgetName: 'Habits',
-        renderWidget: () => renderHabitsJSX(),
-      }),
-    ]);
-  } catch {
-    // Native module unavailable (Expo Go) — no-op.
-  }
+// Re-render both widgets with fresh data when app goes to background.
+// Delegates to the shared refresh utility (same code used by repo files).
+function refreshWidgets() {
+  import('@/widgets/refresh')
+    .then(({ refreshWidgets: r }) => r('all'))
+    .catch(() => {});
 }
 
 function RootShell() {

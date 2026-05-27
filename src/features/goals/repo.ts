@@ -10,6 +10,7 @@ import type {
   Milestone,
   Inspiration,
   InspirationKind,
+  GoalLog,
 } from './types';
 
 type GoalRow = {
@@ -361,4 +362,38 @@ export async function listLinkedHabits(goalId: string) {
      ORDER BY h.created_at ASC`,
     [goalId],
   );
+}
+
+/* ===== Goal Logs ===== */
+
+export async function listGoalLogs(goalId: string, limit = 20): Promise<GoalLog[]> {
+  const db = await getDB();
+  const rows = await db.getAllAsync<{ id: string; goal_id: string; log_date: string; content: string; energy: number; created_at: number }>(
+    `SELECT * FROM goal_logs WHERE goal_id = ? ORDER BY created_at DESC LIMIT ?`,
+    [goalId, limit],
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    goalId: r.goal_id,
+    logDate: r.log_date,
+    content: r.content,
+    energy: (r.energy ?? 3) as 1 | 2 | 3 | 4,
+    createdAt: r.created_at,
+  }));
+}
+
+export async function addGoalLog(goalId: string, content: string, energy: number): Promise<void> {
+  const db = await getDB();
+  const id = uid();
+  const now = Date.now();
+  const date = new Date().toISOString().slice(0, 10);
+  await db.runAsync(
+    `INSERT INTO goal_logs (id, goal_id, log_date, content, energy, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+    [id, goalId, date, content.trim(), energy, now],
+  );
+}
+
+export async function deleteGoalLog(id: string): Promise<void> {
+  const db = await getDB();
+  await db.runAsync(`DELETE FROM goal_logs WHERE id = ?`, [id]);
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Pressable, Image, StyleSheet, Alert } from 'react-native';
+import { View, Pressable, Image, StyleSheet, Alert, Keyboard } from 'react-native';
 import { Plus, Quote, Image as ImageIcon, NotebookPen, X } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Text } from '@/components/Text';
@@ -22,12 +22,19 @@ const KINDS: { key: InspirationKind; label: string; icon: any }[] = [
 export function InspirationSection({ goalId }: Props) {
   const colors = useColors();
   const [items, setItems] = useState<Inspiration[]>([]);
-  const [sheetOpen, setSheetOpen] = useState(false);
   const [kind, setKind] = useState<InspirationKind>('note');
-  const [content, setContent] = useState('');
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const sheetRef = useRef<SheetRef>(null);
+
+  // Content lives in a ref — typing never re-renders this component or the
+  // Sheet/BottomSheet above it, which is the source of the keyboard lag.
+  // Only `hasContent` (a boolean) updates state, and only when emptiness flips.
+  const contentRef = useRef('');
+  const [hasContent, setHasContent] = useState(false);
+  // Bumping this key forces StableTextInput to remount (re-reads defaultValue)
+  // when the sheet opens or the kind switches — resetting the visible text.
+  const [inputKey, setInputKey] = useState(0);
 
   const reload = useCallback(async () => {
     const list = await repo.listInspirations(goalId);
@@ -36,12 +43,30 @@ export function InspirationSection({ goalId }: Props) {
 
   useEffect(() => { reload(); }, [reload]);
 
+  const resetContent = () => {
+    contentRef.current = '';
+    setHasContent(false);
+    setInputKey((k) => k + 1);
+  };
+
   const openSheet = () => {
     setKind('note');
-    setContent('');
     setImageUri(null);
+    resetContent();
+    Keyboard.dismiss();
     sheetRef.current?.present();
   };
+
+  const handleKindChange = (k: InspirationKind) => {
+    setKind(k);
+    resetContent();
+  };
+
+  const onContentChange = useCallback((t: string) => {
+    contentRef.current = t;
+    const next = !!t.trim();
+    setHasContent((prev) => (prev === next ? prev : next));
+  }, []);
 
   const pickImage = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -49,21 +74,17 @@ export function InspirationSection({ goalId }: Props) {
       Alert.alert('Permission needed', 'Allow photo library access in settings to add images.');
       return;
     }
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.8,
-    });
-    if (!res.canceled && res.assets?.[0]) {
-      setImageUri(res.assets[0].uri);
-    }
+    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
+    if (!res.canceled && res.assets?.[0]) setImageUri(res.assets[0].uri);
   };
 
   const handleSave = async () => {
+    const text = contentRef.current.trim();
     if (kind === 'image' && !imageUri) return;
-    if ((kind === 'note' || kind === 'quote') && !content.trim()) return;
+    if ((kind === 'note' || kind === 'quote') && !text) return;
     setSaving(true);
     try {
-      await repo.addInspiration(goalId, kind, content.trim() || null, imageUri);
+      await repo.addInspiration(goalId, kind, text || null, imageUri);
       sheetRef.current?.dismiss();
       await reload();
     } finally {
@@ -84,6 +105,8 @@ export function InspirationSection({ goalId }: Props) {
       },
     ]);
   };
+
+  const saveDisabled = kind === 'image' ? !imageUri : !hasContent;
 
   return (
     <View style={[styles.wrap, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
@@ -131,19 +154,14 @@ export function InspirationSection({ goalId }: Props) {
         ref={sheetRef}
         title="Inspiration"
         subtitle="Something to anchor you."
-        snapPoints={['80%']}
+        snapPoints={['100%']}
         footer={
-          <Button
-            label="Save"
-            onPress={handleSave}
-            loading={saving}
-            disabled={kind === 'image' ? !imageUri : !content.trim()}
-          />
+          <Button label="Save" onPress={handleSave} loading={saving} disabled={saveDisabled} />
         }
       >
         <View style={{ flexDirection: 'row', gap: spacing.sm }}>
           {KINDS.map((k) => (
-            <Chip key={k.key} label={k.label} selected={kind === k.key} onPress={() => setKind(k.key)} />
+            <Chip key={k.key} label={k.label} selected={kind === k.key} onPress={() => handleKindChange(k.key)} />
           ))}
         </View>
 
@@ -164,11 +182,13 @@ export function InspirationSection({ goalId }: Props) {
         ) : null}
 
         <Input
+          key={inputKey}
           label={kind === 'quote' ? 'Quote' : 'Note'}
           placeholder={kind === 'quote' ? '"The cave you fear..."' : 'A thought to remember.'}
-          value={content}
-          onChangeText={setContent}
+          value=""
+          onChangeText={onContentChange}
           multiline
+          style={{ minHeight: 180 }}
         />
       </Sheet>
     </View>
@@ -176,17 +196,9 @@ export function InspirationSection({ goalId }: Props) {
 }
 
 const styles = StyleSheet.create({
-  wrap: {
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    padding: spacing.lg,
-  },
+  wrap: { borderRadius: radii.lg, borderWidth: 1, padding: spacing.lg },
   head: {},
-  item: {
-    borderRadius: radii.md,
-    overflow: 'hidden',
-    position: 'relative',
-  },
+  item: { borderRadius: radii.md, overflow: 'hidden', position: 'relative' },
   contentBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
