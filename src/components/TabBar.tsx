@@ -8,11 +8,11 @@ import { radii, spacing, shadows, useColors } from '@/theme';
 import { Text } from './Text';
 
 const TAB_META: Record<string, { label: string; icon: any }> = {
-  index:   { label: 'Home',    icon: Home },
-  journal: { label: 'Journal', icon: BookOpen },
-  actions: { label: 'Actions', icon: Zap },
-  goals:   { label: 'Goals',   icon: Target },
-  more:    { label: 'More',    icon: LayoutGrid },
+  index:         { label: 'Home',    icon: Home },
+  'journal-feed': { label: 'Journal', icon: BookOpen },
+  actions:       { label: 'Actions', icon: Zap },
+  goals:         { label: 'Goals',   icon: Target },
+  more:          { label: 'More',    icon: LayoutGrid },
 };
 
 // Bar pill height is fixed so React Navigation never has to remeasure it.

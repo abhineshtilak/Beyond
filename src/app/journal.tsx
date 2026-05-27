@@ -28,6 +28,7 @@ import {
   Flame,
   Calendar,
   Type,
+  Mic,
 } from 'lucide-react-native';
 import { format, subDays, parseISO } from 'date-fns';
 import { Text } from '@/components/Text';
@@ -46,19 +47,19 @@ import type { Attachment } from '@/components/MediaAttachments';
 function buildDateOptions() {
   const today = new Date();
   return [
-    { label: 'Today', sub: format(today, 'd MMM, yyyy'), date: ymd(today) },
-    { label: 'Yesterday', sub: format(subDays(today, 1), 'd MMM, yyyy'), date: ymd(subDays(today, 1)) },
-    { label: 'Day before', sub: format(subDays(today, 2), 'd MMM, yyyy'), date: ymd(subDays(today, 2)) },
+    { label: 'Today',      sub: format(today,                'd MMM, yyyy'), date: ymd(today) },
+    { label: 'Yesterday',  sub: format(subDays(today, 1),   'd MMM, yyyy'), date: ymd(subDays(today, 1)) },
+    { label: 'Day before', sub: format(subDays(today, 2),   'd MMM, yyyy'), date: ymd(subDays(today, 2)) },
   ];
 }
 
 function dateLabelFor(d: string): string {
   const todayStr = ymd();
-  const yest = ymd(subDays(new Date(), 1));
-  const dbb = ymd(subDays(new Date(), 2));
+  const yest    = ymd(subDays(new Date(), 1));
+  const dbb     = ymd(subDays(new Date(), 2));
   if (d === todayStr) return 'Today';
-  if (d === yest) return 'Yesterday';
-  if (d === dbb) return 'Day before';
+  if (d === yest)     return 'Yesterday';
+  if (d === dbb)      return 'Day before';
   return format(parseISO(d), 'd MMM yyyy');
 }
 
@@ -82,9 +83,8 @@ export default function JournalScreen() {
   const lastSavedRef = useRef('');
   const isNewRef = useRef(!params.id);
 
-  // Title — plain state; the title field is isolated so keystroke re-renders are harmless
   const [title, setTitle] = useState('');
-  const titleRef = useRef(''); // shadow ref so save() can read it without a state dep
+  const titleRef = useRef('');
   const handleTitleChange = (t: string) => {
     titleRef.current = t;
     setTitle(t);
@@ -102,7 +102,6 @@ export default function JournalScreen() {
   const [promptIdx, setPromptIdx] = useState(-1);
   const [promptText, setPromptText] = useState('');
   const [showFormatBar, setShowFormatBar] = useState(false);
-  const [showMediaBar, setShowMediaBar] = useState(false);
   const [recordingVoice, setRecordingVoice] = useState(false);
 
   const [showCelebration, setShowCelebration] = useState(false);
@@ -198,16 +197,6 @@ export default function JournalScreen() {
 
   const handlePrompt = () => {
     setShowFormatBar(false);
-    setShowMediaBar(false);
-    const p = randomPrompt(promptIdx);
-    setPromptText(p.text);
-    setPromptIdx(p.idx);
-    if (!titleRef.current.trim() || titleRef.current === promptText) {
-      handleTitleChange(p.text);
-    }
-  };
-
-  const handleNewPrompt = () => {
     const p = randomPrompt(promptIdx);
     setPromptText(p.text);
     setPromptIdx(p.idx);
@@ -217,9 +206,7 @@ export default function JournalScreen() {
   };
 
   const dismissPrompt = () => {
-    if (titleRef.current === promptText) {
-      handleTitleChange('');
-    }
+    if (titleRef.current === promptText) handleTitleChange('');
     setPromptText('');
     setPromptIdx(-1);
   };
@@ -235,10 +222,7 @@ export default function JournalScreen() {
   };
   const handleRecordingChange = (recording: boolean) => {
     setRecordingVoice(recording);
-    if (recording) {
-      setShowFormatBar(false);
-      setShowMediaBar(false);
-    }
+    if (recording) setShowFormatBar(false);
   };
   const removeAttachment = (idx: number) => {
     setAttachments((a) => a.filter((_, i) => i !== idx));
@@ -261,7 +245,8 @@ export default function JournalScreen() {
   };
 
   const dirty = snapshot() !== lastSavedRef.current;
-  const statusText = saving ? 'Saving…' : !hasContent() ? 'Start writing' : dirty ? 'Unsaved' : 'Saved';
+  // Status: saving indicator — no "Start writing" prompt text
+  const saveStatus: string = saving ? 'Saving' : !hasContent() ? '' : dirty ? 'Unsaved' : 'Saved';
 
   return (
     <>
@@ -270,31 +255,43 @@ export default function JournalScreen() {
 
         {/* ── Header ── */}
         <View style={styles.header}>
-          <Pressable onPress={handleBack} hitSlop={8} style={[styles.headerBtn, { backgroundColor: colors.surface }]}>
+          {/* Back */}
+          <Pressable
+            onPress={handleBack}
+            hitSlop={10}
+            style={[styles.headerIconBtn, { backgroundColor: colors.surface }]}
+          >
             <ChevronLeft size={20} color={colors.text} strokeWidth={2} />
           </Pressable>
 
-          {/* Date pill */}
+          {/* Date pill (centred, flex) */}
           <Pressable
             onPress={() => { setDateMenuOpen((v) => !v); setShowCalendarPicker(false); }}
             style={[styles.datePill, { backgroundColor: colors.surface }]}
             hitSlop={6}
           >
-            <Text variant="smallMedium" color={colors.textSoft}>{dateLabelFor(selectedDate)}</Text>
+            <Text variant="smallMedium" color={colors.textSoft}>
+              {dateLabelFor(selectedDate)}
+            </Text>
             <ChevronDown size={12} color={colors.textMuted} strokeWidth={2} />
           </Pressable>
 
-          {/* Status + Done */}
-          <View style={styles.headerActions}>
-            <Text variant="caption" color={colors.textFaint} numberOfLines={1} style={styles.statusLabel}>{statusText}</Text>
+          {/* Save status (faint) + Done pill */}
+          <View style={styles.headerRight}>
+            {saveStatus ? (
+              <Text variant="caption" color={colors.textFaint} numberOfLines={1}>
+                {saveStatus}
+              </Text>
+            ) : null}
             <Pressable
               onPress={handleDone}
               hitSlop={8}
-              style={[styles.doneBtn, { backgroundColor: colors.text }, !hasContent() && { opacity: 0.35 }]}
-              disabled={!hasContent()}
+              style={[
+                styles.doneBtn,
+                { backgroundColor: hasContent() ? colors.text : colors.surfaceAlt },
+              ]}
             >
-              <Check size={14} color={colors.bg} strokeWidth={2.5} />
-              <Text variant="smallMedium" color={colors.bg}>Done</Text>
+              <Check size={15} color={hasContent() ? colors.bg : colors.textMuted} strokeWidth={2.5} />
             </Pressable>
           </View>
         </View>
@@ -302,7 +299,10 @@ export default function JournalScreen() {
         {/* ── Date dropdown ── */}
         {dateMenuOpen ? (
           <>
-            <Pressable style={StyleSheet.absoluteFill} onPress={() => { setDateMenuOpen(false); setShowCalendarPicker(false); }} />
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={() => { setDateMenuOpen(false); setShowCalendarPicker(false); }}
+            />
             <View style={[styles.dateMenu, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
               {dateOptions.map((opt) => (
                 <Pressable
@@ -343,12 +343,12 @@ export default function JournalScreen() {
           keyboardVerticalOffset={0}
         >
           <ScrollView
-            contentContainerStyle={[styles.canvas, { paddingBottom: 104 + insets.bottom }]}
+            contentContainerStyle={[styles.canvas, { paddingBottom: 100 + insets.bottom }]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
           >
-            {/* ── Page date stamp ── */}
+            {/* Date stamp */}
             <Text
               variant="caption"
               color={colors.textFaint}
@@ -357,11 +357,11 @@ export default function JournalScreen() {
               {format(parseISO(selectedDate), 'EEEE, MMMM d, yyyy')}
             </Text>
 
-            {/* ── Title ── */}
+            {/* Title */}
             <TextInput
               value={title}
               onChangeText={handleTitleChange}
-              placeholder="Title or prompt"
+              placeholder="Title"
               placeholderTextColor={colors.textFaint}
               style={[styles.titleInput, { color: colors.text, fontFamily: fonts.sansSemi }]}
               returnKeyType="next"
@@ -372,10 +372,9 @@ export default function JournalScreen() {
               multiline
             />
 
-            {/* ── Divider ── */}
             <View style={[styles.divider, { backgroundColor: colors.hairline }]} />
 
-            {/* ── Body editor ── */}
+            {/* Body */}
             <View style={styles.editorWrap}>
               <RichEditor
                 ref={editorRef}
@@ -399,7 +398,7 @@ export default function JournalScreen() {
               />
             </View>
 
-            {/* ── Attachments ── */}
+            {/* Attachments */}
             {attachments.length > 0 ? (
               <View style={styles.attachmentsCol}>
                 {attachments.map((a, i) => (
@@ -410,20 +409,20 @@ export default function JournalScreen() {
           </ScrollView>
 
           {/* ── Bottom dock ── */}
-          <View style={[styles.dock, { bottom: Math.max(insets.bottom, spacing.sm) + 8 }]}>
-            {showFormatBar ? (
-              <View
-                style={[
-                  styles.formatPanel,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.hairline,
-                  },
-                ]}
-              >
+          <View style={[styles.dock, { bottom: Math.max(insets.bottom, 8) + 8 }]}>
+
+            {/* Format toolbar — floats above the dock row when open */}
+            {showFormatBar && !recordingVoice ? (
+              <View style={[styles.formatPanel, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
                 <RichToolbar
                   editor={editorRef}
-                  actions={[actions.setBold, actions.setItalic, actions.setUnderline, actions.insertBulletsList, actions.insertOrderedList]}
+                  actions={[
+                    actions.setBold,
+                    actions.setItalic,
+                    actions.setUnderline,
+                    actions.insertBulletsList,
+                    actions.insertOrderedList,
+                  ]}
                   iconTint={colors.textMuted}
                   selectedIconTint={colors.text}
                   iconSize={18}
@@ -431,91 +430,69 @@ export default function JournalScreen() {
                 />
               </View>
             ) : null}
-            {showMediaBar ? (
-              <View
-                style={[
-                  styles.mediaPanel,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.hairline,
-                  },
-                ]}
-              >
-                <Pressable onPress={() => { setShowMediaBar(false); pickImage(); }} style={({ pressed }) => [styles.panelBtn, { borderColor: colors.hairline }, pressed && styles.pressed]}>
-                  <ImageIcon size={16} color={colors.textSoft} strokeWidth={1.75} />
-                  <Text variant="caption" color={colors.textMuted}>Photo</Text>
-                </Pressable>
-                <Pressable onPress={() => { setShowMediaBar(false); pickVideo(); }} style={({ pressed }) => [styles.panelBtn, { borderColor: colors.hairline }, pressed && styles.pressed]}>
-                  <VideoIcon size={16} color={colors.textSoft} strokeWidth={1.75} />
-                  <Text variant="caption" color={colors.textMuted}>Video</Text>
-                </Pressable>
-              </View>
-            ) : null}
 
-            <View
-              style={[
-                styles.mediaRow,
-                {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.hairline,
-                },
-              ]}
-            >
-              {!recordingVoice ? (
+            {/* Main pill row */}
+            <View style={[styles.dockRow, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+              {recordingVoice ? (
+                /* Recording state fills the whole row */
+                <View style={styles.voiceFullSlot}>
+                  <VoiceRecorder
+                    compact
+                    onRecordingChange={handleRecordingChange}
+                    onComplete={onVoiceComplete}
+                  />
+                </View>
+              ) : (
                 <>
-                  <Pressable
-                    onPress={() => {
-                      setShowMediaBar(false);
-                      setShowFormatBar((v) => !v);
-                    }}
-                    style={({ pressed }) => [
-                      styles.mediaBtn,
-                      {
-                        borderColor: showFormatBar ? colors.textSoft : colors.hairline,
-                        backgroundColor: showFormatBar ? colors.surfaceAlt : 'transparent',
-                      },
-                      pressed && styles.pressed,
-                    ]}
+                  {/* Format toggle */}
+                  <DockBtn
+                    active={showFormatBar}
+                    onPress={() => setShowFormatBar((v) => !v)}
+                    activeColor={colors.surfaceAlt}
+                    activeBorder={colors.textSoft}
                   >
                     <Type size={16} color={showFormatBar ? colors.text : colors.textSoft} strokeWidth={1.8} />
-                  </Pressable>
-                  <Pressable
-                    onPress={() => {
-                      setShowFormatBar(false);
-                      setShowMediaBar((v) => !v);
-                    }}
-                    style={({ pressed }) => [
-                      styles.mediaBtn,
-                      {
-                        borderColor: showMediaBar ? colors.textSoft : colors.hairline,
-                        backgroundColor: showMediaBar ? colors.surfaceAlt : 'transparent',
-                      },
-                      pressed && styles.pressed,
-                    ]}
+                  </DockBtn>
+
+                  <View style={[styles.dividerV, { backgroundColor: colors.hairline }]} />
+
+                  {/* Photo */}
+                  <DockBtn onPress={pickImage}>
+                    <ImageIcon size={17} color={colors.textSoft} strokeWidth={1.75} />
+                  </DockBtn>
+
+                  {/* Video */}
+                  <DockBtn onPress={pickVideo}>
+                    <VideoIcon size={17} color={colors.textSoft} strokeWidth={1.75} />
+                  </DockBtn>
+
+                  {/* Voice — compact mic button that starts recording inline */}
+                  <View style={styles.voiceCompactSlot}>
+                    <VoiceRecorder
+                      compact
+                      onRecordingChange={handleRecordingChange}
+                      onComplete={onVoiceComplete}
+                    />
+                  </View>
+
+                  <View style={[styles.dividerV, { backgroundColor: colors.hairline }]} />
+
+                  {/* Prompt */}
+                  <DockBtn
+                    active={!!promptText}
+                    onPress={handlePrompt}
+                    onLongPress={promptText ? dismissPrompt : undefined}
+                    activeColor={colors.lavenderSoft}
+                    activeBorder={colors.lavender + '66'}
                   >
-                    <ImageIcon size={16} color={showMediaBar ? colors.text : colors.textSoft} strokeWidth={1.75} />
-                  </Pressable>
+                    <Lightbulb
+                      size={16}
+                      color={promptText ? colors.lavender : colors.textSoft}
+                      strokeWidth={1.75}
+                    />
+                  </DockBtn>
                 </>
-              ) : null}
-              <View style={styles.voiceSlot}>
-                <VoiceRecorder compact onRecordingChange={handleRecordingChange} onComplete={onVoiceComplete} />
-              </View>
-              {!recordingVoice ? (
-                <Pressable
-                  onPress={handlePrompt}
-                  onLongPress={promptText ? dismissPrompt : undefined}
-                  style={({ pressed }) => [
-                    styles.mediaBtn,
-                    {
-                      borderColor: promptText ? colors.lavender + '66' : colors.hairline,
-                      backgroundColor: promptText ? colors.lavenderSoft : 'transparent',
-                    },
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <Lightbulb size={16} color={promptText ? colors.lavender : colors.textSoft} strokeWidth={1.75} />
-                </Pressable>
-              ) : null}
+              )}
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -547,18 +524,51 @@ export default function JournalScreen() {
                 ? 'You showed up again. That matters.'
                 : celebrationStreak < 30
                 ? 'This is becoming a real habit.'
-                : 'You\'re building something rare.'}
+                : "You're building something rare."}
             </Text>
-            <Pressable
-              onPress={handleCelebrationClose}
-              style={[styles.celebBtn, { backgroundColor: colors.text }]}
-            >
+            <Pressable onPress={handleCelebrationClose} style={[styles.celebBtn, { backgroundColor: colors.text }]}>
               <Text variant="bodyMedium" color={colors.bg}>Continue</Text>
             </Pressable>
           </Pressable>
         </Pressable>
       </Modal>
     </>
+  );
+}
+
+// Small reusable dock button
+function DockBtn({
+  children,
+  onPress,
+  onLongPress,
+  active = false,
+  activeColor,
+  activeBorder,
+}: {
+  children: React.ReactNode;
+  onPress?: () => void;
+  onLongPress?: () => void;
+  active?: boolean;
+  activeColor?: string;
+  activeBorder?: string;
+}) {
+  const colors = useColors();
+  return (
+    <Pressable
+      onPress={onPress}
+      onLongPress={onLongPress}
+      hitSlop={6}
+      style={({ pressed }) => [
+        styles.dockBtn,
+        active && {
+          backgroundColor: activeColor ?? colors.surfaceAlt,
+          borderColor: activeBorder ?? colors.textSoft,
+        },
+        pressed && { opacity: 0.65, transform: [{ translateY: 1 }] },
+      ]}
+    >
+      {children}
+    </Pressable>
   );
 }
 
@@ -580,7 +590,9 @@ function AttachmentTile({ item, onRemove }: { item: Attachment; onRemove: () => 
         <View style={styles.videoOverlay}>
           <Play size={32} color="#fff" fill="#fff" />
           {item.duration ? (
-            <Text variant="caption" color="#fff" style={{ marginTop: 4 }}>{formatSecs(Math.floor(item.duration))}</Text>
+            <Text variant="caption" color="#fff" style={{ marginTop: 4 }}>
+              {formatSecs(Math.floor(item.duration))}
+            </Text>
           ) : null}
         </View>
         <Pressable onPress={onRemove} style={[styles.tileRemove, { backgroundColor: colors.bg }]} hitSlop={6}>
@@ -609,12 +621,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
     minHeight: 52,
   },
-  headerBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
+  headerIconBtn: {
+    width: 34, height: 34, borderRadius: 17,
+    alignItems: 'center', justifyContent: 'center',
   },
   datePill: {
     flex: 1,
@@ -626,31 +635,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     borderRadius: radii.pill,
   },
-  headerActions: {
+  headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
   },
-  statusLabel: {
-    width: 72,
-    textAlign: 'right',
-  },
   doneBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    minHeight: 34,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    borderRadius: radii.pill,
+    width: 34, height: 34, borderRadius: 17,
+    alignItems: 'center', justifyContent: 'center',
   },
 
   // Date dropdown
   dateMenu: {
     position: 'absolute',
-    top: 88,
-    left: spacing.lg,
-    right: spacing.lg,
+    top: 60,
+    left: spacing.lg, right: spacing.lg,
     zIndex: 100,
     borderRadius: radii.xl,
     borderWidth: 1,
@@ -668,13 +667,11 @@ const styles = StyleSheet.create({
     gap: 2,
   },
 
-  // Writing canvas
+  // Canvas
   canvas: {
     paddingHorizontal: spacing.xxl,
     paddingTop: spacing.md,
   },
-
-  // Title
   titleInput: {
     fontSize: 24,
     lineHeight: 31,
@@ -682,18 +679,19 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
     marginBottom: spacing.md,
   },
-
-  // Divider between title and body
   divider: {
     height: 1,
     marginBottom: spacing.md,
   },
-
-  // Editor
   editorWrap: { minHeight: 84 },
-  attachmentsCol: { gap: spacing.sm, marginTop: 0 },
-  imageTile: { borderRadius: radii.lg, overflow: 'hidden', borderWidth: 1, position: 'relative' },
-  videoTile: { borderRadius: radii.lg, overflow: 'hidden', borderWidth: 1, height: 220, position: 'relative' },
+  attachmentsCol: { gap: spacing.sm, marginTop: spacing.sm },
+
+  imageTile: {
+    borderRadius: radii.lg, overflow: 'hidden', borderWidth: 1, position: 'relative',
+  },
+  videoTile: {
+    borderRadius: radii.lg, overflow: 'hidden', borderWidth: 1, height: 220, position: 'relative',
+  },
   videoOverlay: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   tileRemove: {
     position: 'absolute', top: 8, right: 8,
@@ -704,8 +702,7 @@ const styles = StyleSheet.create({
   // Dock
   dock: {
     position: 'absolute',
-    left: 0,
-    right: 0,
+    left: 0, right: 0,
     alignItems: 'center',
     zIndex: 30,
     pointerEvents: 'box-none',
@@ -713,89 +710,66 @@ const styles = StyleSheet.create({
   formatPanel: {
     position: 'absolute',
     bottom: 60,
-    width: 236,
+    width: 240,
     borderWidth: 1,
     borderRadius: radii.pill,
     paddingHorizontal: spacing.sm,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.07,
+    shadowRadius: 16,
     elevation: 8,
     zIndex: 20,
   },
-  formatToolbar: {
-    height: 40,
-    borderRadius: radii.pill,
-  },
-  mediaPanel: {
-    position: 'absolute',
-    bottom: 60,
-    width: 176,
+  formatToolbar: { height: 40, borderRadius: radii.pill },
+
+  // Main dock row
+  dockRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderRadius: radii.pill,
-    padding: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    elevation: 8,
-    zIndex: 20,
-  },
-  panelBtn: {
-    flex: 1,
-    height: 34,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-  },
-  mediaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
     width: '88%',
-    maxWidth: 520,
+    maxWidth: 480,
     height: 52,
     borderRadius: radii.pill,
     borderWidth: 1,
     paddingHorizontal: 10,
+    gap: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.08,
-    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.07,
+    shadowRadius: 20,
     elevation: 10,
   },
-  mediaBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+  dockBtn: {
+    width: 36, height: 36,
+    borderRadius: 18,
     borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: 'transparent',
+    alignItems: 'center', justifyContent: 'center',
   },
-  voiceSlot: {
+  dividerV: {
+    width: 1, height: 22,
+    marginHorizontal: 2,
+  },
+  voiceCompactSlot: {
     flex: 1,
     height: 44,
     alignItems: 'stretch',
     justifyContent: 'center',
   },
-  pressed: {
-    opacity: 0.65,
-    transform: [{ translateY: 1 }],
+  voiceFullSlot: {
+    flex: 1,
+    height: 44,
+    alignItems: 'stretch',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
   },
 
   // Celebration
   celebOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.45)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center',
     padding: spacing.xxl,
   },
   celebCard: {

@@ -15,7 +15,7 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen name="index" />
-      <Tabs.Screen name="journal" />
+      <Tabs.Screen name="journal-feed" />
       <Tabs.Screen name="actions" />
       <Tabs.Screen name="goals" />
       <Tabs.Screen name="more" />
