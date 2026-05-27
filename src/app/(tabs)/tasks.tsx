@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { View, FlatList, StyleSheet, Pressable } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { CheckCircle2, Trash2, X, CheckSquare } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import { Screen } from '@/components/Screen';
 import { Text } from '@/components/Text';
 import { Chip } from '@/components/Chip';
