@@ -1,6 +1,6 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { initialWindowMetrics } from 'react-native-safe-area-context';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import * as Haptics from '@/lib/haptics';
 import { Home, Target, BookOpen, Zap, LayoutGrid } from 'lucide-react-native';
@@ -18,26 +18,19 @@ const TAB_META: Record<string, { label: string; icon: any }> = {
 // Bar pill height is fixed so React Navigation never has to remeasure it.
 const BAR_HEIGHT = 66;
 
+// Bottom inset captured once at launch from the native window — never changes,
+// not affected by keyboard open/close or screen transitions.  Using a ref or
+// useSafeAreaInsets() here is risky because those values shift when the
+// keyboard animates, causing the bar to jump after returning from the journal.
+const BOTTOM_INSET = initialWindowMetrics?.insets.bottom ?? 0;
+
 function withAlpha(hex: string, alpha: string) {
   return hex.length === 7 ? `${hex}${alpha}` : hex;
 }
 
 export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
-  const insets = useSafeAreaInsets();
   const colors = useColors();
-
-  // Freeze the bottom inset on the first valid measurement so the total
-  // tab-bar height never changes after mount. Without this, Android
-  // edge-to-edge reports different inset values when the keyboard appears,
-  // which causes React Navigation to remeasure the bar and shift all content.
-  const frozenBottom = useRef<number | null>(null);
-  if (frozenBottom.current === null) {
-    // insets.bottom is 0 before SafeAreaProvider initialises — with
-    // initialWindowMetrics in the root layout this resolves synchronously,
-    // so we always get the real value on the first render.
-    frozenBottom.current = insets.bottom;
-  }
-  const bottomPad = frozenBottom.current + spacing.sm;
+  const bottomPad = BOTTOM_INSET + spacing.sm;
   const shellBg = withAlpha(colors.surface, 'F2');
   const activeBg = withAlpha(colors.accentSoft, 'E6');
   const pressedBg = withAlpha(colors.surfaceAlt, 'B8');

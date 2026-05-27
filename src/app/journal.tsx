@@ -398,12 +398,15 @@ export default function JournalScreen() {
               />
             </View>
 
-            {/* Attachments */}
+            {/* Attachments — compact strip below text, never interrupts writing */}
             {attachments.length > 0 ? (
-              <View style={styles.attachmentsCol}>
-                {attachments.map((a, i) => (
-                  <AttachmentTile key={`${a.uri}-${i}`} item={a} onRemove={() => removeAttachment(i)} />
-                ))}
+              <View style={styles.attachmentsStrip}>
+                <View style={[styles.stripDivider, { backgroundColor: colors.hairline }]} />
+                <View style={styles.stripRow}>
+                  {attachments.map((a, i) => (
+                    <CompactAttachment key={`${a.uri}-${i}`} item={a} onRemove={() => removeAttachment(i)} />
+                  ))}
+                </View>
               </View>
             ) : null}
           </ScrollView>
@@ -572,36 +575,51 @@ function DockBtn({
   );
 }
 
-function AttachmentTile({ item, onRemove }: { item: Attachment; onRemove: () => void }) {
+// Compact attachment thumbnail — 80×80 so it never interrupts text flow
+function CompactAttachment({ item, onRemove }: { item: Attachment; onRemove: () => void }) {
   const colors = useColors();
+
   if (item.kind === 'image') {
     return (
-      <View style={[styles.imageTile, { borderColor: colors.hairline }]}>
-        <Image source={{ uri: item.uri }} style={{ width: '100%', height: 220 }} resizeMode="cover" />
-        <Pressable onPress={onRemove} style={[styles.tileRemove, { backgroundColor: colors.bg }]} hitSlop={6}>
-          <XIcon size={14} color={colors.text} strokeWidth={2} />
+      <View style={[styles.thumb, { borderColor: colors.hairline }]}>
+        <Image source={{ uri: item.uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        <Pressable onPress={onRemove} style={[styles.thumbX, { backgroundColor: colors.bg }]} hitSlop={6}>
+          <XIcon size={11} color={colors.text} strokeWidth={2.5} />
         </Pressable>
       </View>
     );
   }
+
   if (item.kind === 'video') {
     return (
-      <View style={[styles.videoTile, { backgroundColor: '#111', borderColor: colors.hairline }]}>
-        <View style={styles.videoOverlay}>
-          <Play size={32} color="#fff" fill="#fff" />
+      <View style={[styles.thumb, { backgroundColor: '#111', borderColor: colors.hairline }]}>
+        <View style={styles.thumbPlayOverlay}>
+          <Play size={20} color="#fff" fill="#fff" />
           {item.duration ? (
-            <Text variant="caption" color="#fff" style={{ marginTop: 4 }}>
+            <Text variant="caption" color="#fff" style={{ fontSize: 9, marginTop: 2 }}>
               {formatSecs(Math.floor(item.duration))}
             </Text>
           ) : null}
         </View>
-        <Pressable onPress={onRemove} style={[styles.tileRemove, { backgroundColor: colors.bg }]} hitSlop={6}>
-          <XIcon size={14} color={colors.text} strokeWidth={2} />
+        <Pressable onPress={onRemove} style={[styles.thumbX, { backgroundColor: colors.bg }]} hitSlop={6}>
+          <XIcon size={11} color={colors.text} strokeWidth={2.5} />
         </Pressable>
       </View>
     );
   }
-  return <PlaybackWaveform uri={item.uri} duration={item.duration} onDelete={onRemove} />;
+
+  // Audio — compact horizontal pill
+  return (
+    <View style={[styles.audioPill, { backgroundColor: colors.surfaceAlt, borderColor: colors.hairline }]}>
+      <Mic size={14} color={colors.textSoft} strokeWidth={1.75} />
+      {item.duration ? (
+        <Text variant="caption" color={colors.textSoft}>{formatSecs(Math.round(item.duration))}</Text>
+      ) : null}
+      <Pressable onPress={onRemove} hitSlop={6}>
+        <XIcon size={12} color={colors.textMuted} strokeWidth={2} />
+      </Pressable>
+    </View>
+  );
 }
 
 function formatSecs(s: number): string {
@@ -684,19 +702,40 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   editorWrap: { minHeight: 84 },
-  attachmentsCol: { gap: spacing.sm, marginTop: spacing.sm },
 
-  imageTile: {
-    borderRadius: radii.lg, overflow: 'hidden', borderWidth: 1, position: 'relative',
+  // Compact attachment strip — sits below all text, never interrupts writing
+  attachmentsStrip: { marginTop: spacing.lg },
+  stripDivider: { height: 1, marginBottom: spacing.md },
+  stripRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    paddingBottom: spacing.sm,
   },
-  videoTile: {
-    borderRadius: radii.lg, overflow: 'hidden', borderWidth: 1, height: 220, position: 'relative',
+
+  // 80×80 image / video thumbnails
+  thumb: {
+    width: 80, height: 80,
+    borderRadius: radii.md,
+    overflow: 'hidden',
+    borderWidth: 1,
+    position: 'relative',
   },
-  videoOverlay: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  tileRemove: {
-    position: 'absolute', top: 8, right: 8,
-    width: 26, height: 26, borderRadius: 13,
+  thumbPlayOverlay: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center', justifyContent: 'center',
+  },
+  thumbX: {
+    position: 'absolute', top: 4, right: 4,
+    width: 20, height: 20, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center',
+  },
+
+  // Audio compact pill
+  audioPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: spacing.md, paddingVertical: 8,
+    borderRadius: radii.pill, borderWidth: 1,
   },
 
   // Dock

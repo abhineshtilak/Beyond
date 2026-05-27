@@ -2,12 +2,11 @@ import React, { useCallback, useState } from 'react';
 import { View, Pressable, StyleSheet, Image, FlatList } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { format } from 'date-fns';
-import { Sparkles, Pencil, Mic, Image as ImageIconLucide, Video as VideoIcon, Flame, X as CloseIcon } from 'lucide-react-native';
+import { Sparkles, Pencil, Mic, Video as VideoIcon, Flame, X as CloseIcon, Play } from 'lucide-react-native';
 import * as Haptics from '@/lib/haptics';
 import { Screen } from '@/components/Screen';
 import { Text } from '@/components/Text';
 import { SelectionDeleteBtn } from '@/components/SelectionDeleteBtn';
-import { PlaybackWaveform } from '@/components/Waveform';
 import { spacing, radii, useColors, shadows } from '@/theme';
 import { confirm } from '@/lib/confirm';
 import { useJournalStore } from '@/features/journal/store';
@@ -174,6 +173,7 @@ export default function JournalFeedTab() {
   );
 }
 
+// Text-first card: content at top, compact media thumbnails pinned at bottom
 function JournalCard({
   entry,
   selectionMode,
@@ -189,12 +189,10 @@ function JournalCard({
 }) {
   const colors = useColors();
   const previewText = htmlToPlainText(entry.bodyHtml) || entry.content || '';
-  const firstImage = entry.attachments.find((a) => a.kind === 'image');
-  const firstAudio = entry.attachments.find((a) => a.kind === 'audio');
-  const counts = entry.attachments.reduce(
-    (acc, a) => ({ ...acc, [a.kind]: (acc[a.kind] ?? 0) + 1 }),
-    {} as Record<string, number>,
-  );
+  const images = entry.attachments.filter((a) => a.kind === 'image');
+  const videos = entry.attachments.filter((a) => a.kind === 'video');
+  const audios = entry.attachments.filter((a) => a.kind === 'audio');
+  const hasMedia = images.length > 0 || videos.length > 0 || audios.length > 0;
 
   return (
     <Pressable
@@ -211,38 +209,36 @@ function JournalCard({
         pressed && { opacity: 0.92 },
       ]}
     >
-      {firstImage ? (
-        <Image source={{ uri: firstImage.uri }} style={styles.cardImage} />
-      ) : null}
       <View style={styles.cardBody}>
+        {/* Timestamp + selection circle */}
         <View style={styles.cardHead}>
-          <Text variant="caption" color={colors.textMuted}>
+          <Text variant="caption" color={colors.textMuted} style={{ flex: 1 }}>
             {format(entry.createdAt, 'EEE, MMM d · h:mm a').toUpperCase()}
           </Text>
           {selectionMode ? (
             <View
               style={{
-                width: 22, height: 22, borderRadius: 11,
+                width: 20, height: 20, borderRadius: 10,
                 borderWidth: 1.5,
                 borderColor: selected ? colors.text : colors.hairline,
                 backgroundColor: selected ? colors.text : 'transparent',
-                alignItems: 'center', justifyContent: 'center',
-                marginLeft: 'auto',
               }}
             />
           ) : null}
         </View>
 
+        {/* Title */}
         {entry.title ? (
-          <Text variant="h3" numberOfLines={2} style={{ marginBottom: previewText ? 4 : 0 }}>
+          <Text variant="h3" numberOfLines={2} style={{ marginTop: 2, marginBottom: previewText ? 4 : 0 }}>
             {entry.title}
           </Text>
         ) : null}
 
+        {/* Body preview — text is the star */}
         {previewText ? (
           <Text
             variant="body"
-            numberOfLines={entry.title ? 3 : 6}
+            numberOfLines={entry.title ? 4 : 7}
             color={entry.title ? colors.textSoft : colors.text}
             style={{ lineHeight: 22 }}
           >
@@ -250,15 +246,39 @@ function JournalCard({
           </Text>
         ) : null}
 
-        {firstAudio ? (
-          <PlaybackWaveform uri={firstAudio.uri} duration={firstAudio.duration} />
-        ) : null}
+        {/* Compact media strip — always below text, small thumbnails */}
+        {hasMedia ? (
+          <View style={[styles.mediaStrip, { borderTopColor: colors.hairline }]}>
+            {/* Image thumbnails (max 3, then +N badge) */}
+            {images.slice(0, 3).map((img, i) => (
+              <View key={i} style={[styles.mediaThumbnail, { borderColor: colors.hairline }]}>
+                <Image source={{ uri: img.uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+              </View>
+            ))}
+            {images.length > 3 ? (
+              <View style={[styles.mediaThumbnail, styles.mediaMore, { backgroundColor: colors.surfaceAlt, borderColor: colors.hairline }]}>
+                <Text variant="caption" color={colors.textSoft}>+{images.length - 3}</Text>
+              </View>
+            ) : null}
 
-        {(counts.image ?? 0) + (counts.audio ?? 0) + (counts.video ?? 0) > 0 ? (
-          <View style={styles.attRow}>
-            {counts.image ? <Badge icon={ImageIconLucide} count={counts.image} /> : null}
-            {counts.audio ? <Badge icon={Mic} count={counts.audio} /> : null}
-            {counts.video ? <Badge icon={VideoIcon} count={counts.video} /> : null}
+            {/* Video thumbnails */}
+            {videos.slice(0, 2).map((vid, i) => (
+              <View key={i} style={[styles.mediaThumbnail, { backgroundColor: '#111', borderColor: colors.hairline }]}>
+                <View style={styles.videoIcon}>
+                  <Play size={12} color="#fff" fill="#fff" />
+                </View>
+              </View>
+            ))}
+
+            {/* Audio pills */}
+            {audios.map((aud, i) => (
+              <View key={i} style={[styles.audioPill, { backgroundColor: colors.surfaceAlt, borderColor: colors.hairline }]}>
+                <Mic size={11} color={colors.textMuted} strokeWidth={2} />
+                {aud.duration ? (
+                  <Text variant="caption" color={colors.textMuted}>{fmtSecs(Math.round(aud.duration))}</Text>
+                ) : null}
+              </View>
+            ))}
           </View>
         ) : null}
       </View>
@@ -266,14 +286,10 @@ function JournalCard({
   );
 }
 
-function Badge({ icon: Icon, count }: { icon: any; count: number }) {
-  const colors = useColors();
-  return (
-    <View style={[styles.badge, { backgroundColor: colors.bg }]}>
-      <Icon size={11} color={colors.textMuted} strokeWidth={2} />
-      <Text variant="caption" color={colors.textMuted}>{count}</Text>
-    </View>
-  );
+function fmtSecs(s: number): string {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${sec.toString().padStart(2, '0')}`;
 }
 
 const styles = StyleSheet.create({
@@ -304,14 +320,37 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     overflow: 'hidden',
   },
-  cardImage: { width: '100%', height: 200 },
-  cardBody: { padding: spacing.lg, gap: spacing.sm },
-  cardHead: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
-  attRow: { flexDirection: 'row', gap: spacing.sm },
-  badge: {
+  cardBody: { padding: spacing.lg, gap: spacing.xs },
+  cardHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+
+  // Compact media strip at bottom of card
+  mediaStrip: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    alignItems: 'center',
+  },
+  mediaThumbnail: {
+    width: 48, height: 48,
+    borderRadius: radii.sm,
+    overflow: 'hidden',
+    borderWidth: 1,
+    position: 'relative',
+  },
+  mediaMore: {
+    alignItems: 'center', justifyContent: 'center',
+  },
+  videoIcon: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  audioPill: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: spacing.sm, paddingVertical: 2,
-    borderRadius: radii.pill,
+    paddingHorizontal: spacing.sm, paddingVertical: 5,
+    borderRadius: radii.pill, borderWidth: 1,
   },
 
   empty: {
