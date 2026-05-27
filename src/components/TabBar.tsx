@@ -2,17 +2,17 @@ import React, { useRef } from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import * as Haptics from 'expo-haptics';
-import { Home, Target, Sparkles, CheckCircle2, LayoutGrid } from 'lucide-react-native';
+import * as Haptics from '@/lib/haptics';
+import { Home, Target, BookOpen, Zap, LayoutGrid } from 'lucide-react-native';
 import { radii, spacing, shadows, useColors } from '@/theme';
 import { Text } from './Text';
 
 const TAB_META: Record<string, { label: string; icon: any }> = {
-  index: { label: 'Home', icon: Home },
-  goals: { label: 'Goals', icon: Target },
-  habits: { label: 'Habits', icon: Sparkles },
-  tasks: { label: 'Tasks', icon: CheckCircle2 },
-  more: { label: 'More', icon: LayoutGrid },
+  index:   { label: 'Home',    icon: Home },
+  journal: { label: 'Journal', icon: BookOpen },
+  actions: { label: 'Actions', icon: Zap },
+  goals:   { label: 'Goals',   icon: Target },
+  more:    { label: 'More',    icon: LayoutGrid },
 };
 
 // Bar pill height is fixed so React Navigation never has to remeasure it.
