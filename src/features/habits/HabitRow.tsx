@@ -1,11 +1,13 @@
-import React, { useRef } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { Swipeable, RectButton } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { Trash2, Flame, Check } from 'lucide-react-native';
+import { subDays } from 'date-fns';
 import * as Haptics from '@/lib/haptics';
 import { Text } from '@/components/Text';
 import { radii, spacing, useColors } from '@/theme';
+import { ymd } from '@/lib/date';
 import { HABIT_ICONS } from './icons';
 import type { HabitWithStats } from './types';
 
@@ -30,6 +32,24 @@ export function HabitRow({ habit, onToggle, onPress, onDelete }: Props) {
     opacity: checkScale.value,
     transform: [{ scale: checkScale.value }],
   }));
+
+  // Days completed = unique done dates (shown as X/targetDays)
+  const daysCompleted = habit.doneDates.size;
+
+  // "Last streak" = consecutive days ending yesterday when current streak is 0.
+  // Shows a ghost / dead-streak indicator so the user sees the chain they broke
+  // instead of the misleading "New habit" text.
+  const lastStreak = useMemo(() => {
+    if (habit.streak > 0 || habit.doneDates.size === 0) return 0;
+    let count = 0;
+    let cursor = subDays(new Date(), 1); // start from yesterday
+    for (let i = 0; i < 400; i++) {
+      if (!habit.doneDates.has(ymd(cursor))) break;
+      count++;
+      cursor = subDays(cursor, 1);
+    }
+    return count;
+  }, [habit.streak, habit.doneDates]);
 
   const handle = () => {
     Haptics.impactAsync(
@@ -63,32 +83,53 @@ export function HabitRow({ habit, onToggle, onPress, onDelete }: Props) {
         <View style={[styles.iconWrap, { backgroundColor: habit.color + '33' }]}>
           <IconCmp size={22} color={habit.color} strokeWidth={1.8} />
         </View>
+
         <View style={{ flex: 1 }}>
           <Text variant="bodyMedium" numberOfLines={1}>{habit.title}</Text>
+
+          {/* Meta row: streak state + days/target */}
           <View style={styles.metaRow}>
             {habit.streak > 0 ? (
+              /* Active streak — warm flame */
               <View style={styles.metaItem}>
-                <Flame size={12} color={colors.textSoft} strokeWidth={2} />
+                <Flame size={12} color="#E8834A" strokeWidth={2} fill="#E8834A" />
                 <Text variant="caption" color={colors.textSoft}>
-                  {habit.streak} DAY{habit.streak === 1 ? '' : 'S'}
+                  {habit.streak} day{habit.streak === 1 ? '' : 's'}
+                </Text>
+              </View>
+            ) : lastStreak > 0 ? (
+              /* Broken streak — ghost flame, Snapchat-style */
+              <View style={styles.metaItem}>
+                <Flame size={12} color={colors.textFaint} strokeWidth={2} />
+                <Text variant="caption" color={colors.textFaint}>
+                  {lastStreak} day{lastStreak === 1 ? '' : 's'}
                 </Text>
               </View>
             ) : (
-              <Text variant="caption" color={colors.textMuted}>NEW HABIT</Text>
+              /* Truly new — no history yet */
+              <Text variant="caption" color={colors.textMuted}>Start today</Text>
             )}
+
+            {/* Days done / target — clear, no percentage */}
             <Text variant="caption" color={colors.textMuted}>
-              · {habit.successRate}% / {habit.targetDays}d
+              · {daysCompleted}/{habit.targetDays}d
             </Text>
           </View>
+
+          {/* Progress bar shows days-done fraction */}
           <View style={[styles.progressTrack, { backgroundColor: colors.hairline }]}>
             <View
               style={[
                 styles.progressFill,
-                { width: `${Math.min(100, habit.successRate)}%`, backgroundColor: habit.color },
+                {
+                  width: `${Math.min(100, (daysCompleted / habit.targetDays) * 100)}%`,
+                  backgroundColor: habit.color,
+                },
               ]}
             />
           </View>
         </View>
+
         <Pressable onPress={handle} hitSlop={12}>
           <View
             style={[
@@ -126,7 +167,7 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 4 },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   progressTrack: {
-    height: 4,
+    height: 3,
     borderRadius: 2,
     marginTop: 8,
     overflow: 'hidden',

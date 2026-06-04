@@ -427,6 +427,41 @@ export async function initDB() {
       UNIQUE(log_date, hour)
     );
   `);
+
+  // ── Affirmations ────────────────────────────────────────────────────────────
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS affirmation_collections (
+      id          TEXT PRIMARY KEY,
+      title       TEXT NOT NULL,
+      emoji       TEXT NOT NULL DEFAULT '✨',
+      cover_color TEXT NOT NULL DEFAULT '#B8A8D0',
+      category    TEXT NOT NULL DEFAULT 'general',
+      is_custom   INTEGER DEFAULT 0,
+      sort_idx    INTEGER DEFAULT 0,
+      created_at  INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS affirmations (
+      id            TEXT PRIMARY KEY,
+      collection_id TEXT NOT NULL,
+      body          TEXT NOT NULL,
+      sort_idx      INTEGER DEFAULT 0,
+      created_at    INTEGER NOT NULL,
+      FOREIGN KEY (collection_id) REFERENCES affirmation_collections(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS affirmation_saves (
+      affirmation_id TEXT PRIMARY KEY,
+      saved_at       INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS affirmation_sessions (
+      id            TEXT PRIMARY KEY,
+      collection_id TEXT NOT NULL,
+      played_at     INTEGER NOT NULL
+    );
+  `);
+
   await runMigrations();
 }
 

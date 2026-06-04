@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { View, ScrollView, StyleSheet, ViewStyle, StatusBar } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, useColors, useTheme } from '@/theme';
+import { TAB_BAR_HEIGHT } from './TabBar';
 
 type Props = {
   children: React.ReactNode;
@@ -25,7 +26,10 @@ export function Screen({
   const insets = useSafeAreaInsets();
   const colors = useColors();
   const { resolved } = useTheme();
-  const bottomInset = tabBarPadding ? 96 + insets.bottom : insets.bottom;
+  // Match Fab.tsx: TAB_BAR_HEIGHT + inset + sm gap + lg breathing room
+  const bottomInset = tabBarPadding
+    ? TAB_BAR_HEIGHT + insets.bottom + spacing.sm + spacing.lg + spacing.lg
+    : insets.bottom;
 
   const innerStyle = [
     padded && { paddingHorizontal: spacing.xxl },

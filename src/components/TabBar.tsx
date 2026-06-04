@@ -1,39 +1,22 @@
 import React from 'react';
-import { View, Pressable, StyleSheet, Dimensions } from 'react-native';
-import { initialWindowMetrics } from 'react-native-safe-area-context';
+import { View, Pressable, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import * as Haptics from '@/lib/haptics';
 import { Home, Target, BookOpen, Zap, LayoutGrid } from 'lucide-react-native';
 import { radii, spacing, shadows, useColors } from '@/theme';
 import { Text } from './Text';
 
+// Exported so Fab and Screen can derive correct offsets on any device.
+export const TAB_BAR_HEIGHT = 66;
+
 const TAB_META: Record<string, { label: string; icon: any }> = {
-  index:         { label: 'Home',    icon: Home },
+  index:          { label: 'Home',    icon: Home },
   'journal-feed': { label: 'Journal', icon: BookOpen },
-  actions:       { label: 'Actions', icon: Zap },
-  goals:         { label: 'Goals',   icon: Target },
-  more:          { label: 'More',    icon: LayoutGrid },
+  actions:        { label: 'Actions', icon: Zap },
+  goals:          { label: 'Goals',   icon: Target },
+  more:           { label: 'More',    icon: LayoutGrid },
 };
-
-// Bar pill height is fixed so React Navigation never has to remeasure it.
-const BAR_HEIGHT = 66;
-
-// Physical screen height — captured once from the display, never changes with
-// keyboard open/close, window resizes, or screen transitions. This is the key
-// difference from Dimensions.get('window').height which shrinks on Android
-// when the keyboard opens (adjustResize), causing bottom:0 to drift upward.
-const SCREEN_H = Dimensions.get('screen').height;
-
-// Bottom inset captured once at launch from the native window — never changes,
-// not affected by keyboard open/close or screen transitions.  Using a ref or
-// useSafeAreaInsets() here is risky because those values shift when the
-// keyboard animates, causing the bar to jump after returning from the journal.
-const BOTTOM_INSET = initialWindowMetrics?.insets.bottom ?? 0;
-
-// Total bottom padding (inset + a little breathing room) and the fixed top
-// offset that places the bar exactly at the physical bottom of the screen.
-const BOTTOM_PAD = BOTTOM_INSET + spacing.sm;
-const WRAP_TOP = SCREEN_H - BAR_HEIGHT - BOTTOM_PAD;
 
 function withAlpha(hex: string, alpha: string) {
   return hex.length === 7 ? `${hex}${alpha}` : hex;
@@ -41,17 +24,32 @@ function withAlpha(hex: string, alpha: string) {
 
 export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const colors = useColors();
-  const shellBg = withAlpha(colors.surface, 'F2');
-  const activeBg = withAlpha(colors.accentSoft, 'E6');
+  // Live insets from hook — never goes stale across orientation / nav-bar changes.
+  const insets = useSafeAreaInsets();
+  const bottomPad = insets.bottom + spacing.sm;
+
+  const activeBg  = withAlpha(colors.accentSoft, 'E6');
   const pressedBg = withAlpha(colors.surfaceAlt, 'B8');
 
   return (
-    <View style={styles.wrap}>
+    // Opaque wrap prevents content scrolling through the bar area on ANY tab.
+    // Using bottom:0 (natural anchor) instead of a computed top offset avoids
+    // the "shaking" that occurs when screen dimensions change between tabs.
+    <View
+      style={[
+        styles.wrap,
+        {
+          paddingBottom: bottomPad,
+          // Match the screen background so the area below the pill is invisible.
+          backgroundColor: colors.bg,
+        },
+      ]}
+    >
       <View
         style={[
           styles.bar,
           {
-            backgroundColor: shellBg,
+            backgroundColor: colors.surface,
             borderColor: colors.hairline,
           },
         ]}
@@ -62,8 +60,9 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
           if (!meta) return null;
           const IconCmp = meta.icon;
           const options = descriptors[route.key]?.options;
-          const tint = focused ? colors.text : colors.textSoft;
-          const mutedTint = focused ? colors.textSoft : colors.textMuted;
+          const iconColor  = focused ? colors.text     : colors.textSoft;
+          const labelColor = focused ? colors.textSoft  : colors.textMuted;
+
           return (
             <Pressable
               key={route.key}
@@ -81,27 +80,45 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
               testID={options?.tabBarButtonTestID}
               style={({ pressed }) => [
                 styles.item,
-                focused && { backgroundColor: activeBg, borderColor: withAlpha(colors.accent, '66') },
+                focused && { backgroundColor: activeBg, borderColor: withAlpha(colors.accent, '55') },
                 pressed && { backgroundColor: focused ? activeBg : pressedBg, transform: [{ translateY: 1 }] },
               ]}
               hitSlop={{ top: 10, bottom: 10, left: 4, right: 4 }}
             >
+              {/* Icon container — glows on active via shadow + surface bg */}
               <View
                 style={[
                   styles.iconWrap,
-                  {
-                    backgroundColor: focused ? colors.surface : 'transparent',
-                    borderColor: focused ? colors.hairline : 'transparent',
-                  },
+                  focused
+                    ? {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.hairline,
+                        // Subtle glow that reads on both themes
+                        shadowColor: colors.text,
+                        shadowOpacity: 0.18,
+                        shadowRadius: 8,
+                        shadowOffset: { width: 0, height: 0 },
+                        elevation: 4,
+                      }
+                    : {
+                        backgroundColor: 'transparent',
+                        borderColor: 'transparent',
+                      },
                 ]}
               >
-                <IconCmp size={20} color={tint} strokeWidth={focused ? 2.25 : 1.75} />
+                <IconCmp
+                  size={focused ? 21 : 20}
+                  color={iconColor}
+                  strokeWidth={focused ? 2.25 : 1.75}
+                />
               </View>
+
+              {/* Label — normal case always, no uppercase */}
               <Text
                 variant="caption"
-                color={mutedTint}
+                color={labelColor}
                 numberOfLines={1}
-                style={focused ? styles.activeLabel : styles.label}
+                style={styles.label}
               >
                 {meta.label}
               </Text>
@@ -116,19 +133,14 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 const styles = StyleSheet.create({
   wrap: {
     position: 'absolute',
-    // Anchor from the TOP using the physical screen height so the bar never
-    // drifts upward when Android's adjustResize shrinks the window on keyboard
-    // open/close — those events don't affect the physical display height.
-    top: WRAP_TOP,
+    bottom: 0,
     left: 0,
     right: 0,
     paddingHorizontal: spacing.lg,
-    paddingBottom: BOTTOM_PAD,
-    backgroundColor: 'transparent',
   },
   bar: {
     flexDirection: 'row',
-    height: BAR_HEIGHT,
+    height: TAB_BAR_HEIGHT,
     borderRadius: radii.pill,
     paddingHorizontal: 6,
     borderWidth: 1,
@@ -157,10 +169,6 @@ const styles = StyleSheet.create({
   label: {
     maxWidth: 58,
     textAlign: 'center',
-  },
-  activeLabel: {
-    maxWidth: 58,
-    textAlign: 'center',
-    textTransform: 'uppercase',
+    // No textTransform — label stays sentence-case on active and inactive both
   },
 });

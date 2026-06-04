@@ -40,6 +40,7 @@ import { InspirationSection } from '@/features/goals/InspirationSection';
 import { GoalLogsSection } from '@/features/goals/GoalLogsSection';
 import { GoalBasicsEditor, GoalBasicsEditorRef } from '@/features/goals/GoalBasicsEditor';
 import { ProgressSheet, ProgressSheetRef } from '@/features/goals/ProgressSheet';
+import { AIInsightsSection } from '@/features/goals/AIInsightsSection';
 
 export default function GoalDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -52,14 +53,23 @@ export default function GoalDetailScreen() {
   const [goal, setGoal] = useState<Goal | null>(null);
   const [loading, setLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0);
+  const [health, setHealth] = useState<{
+    score: number;
+    status: 'on_track' | 'needs_attention' | 'stalling';
+    observations: string[];
+  } | null>(null);
   const basicsRef = useRef<GoalBasicsEditorRef>(null);
   const progressSheetRef = useRef<ProgressSheetRef>(null);
   const scrollRef = useRef<ScrollView>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
-    const g = await repo.getGoal(id);
+    const [g, h] = await Promise.all([
+      repo.getGoal(id),
+      repo.goalHealthScore(id),
+    ]);
     setGoal(g);
+    setHealth(h);
     setLoading(false);
   }, [id]);
 
@@ -232,13 +242,41 @@ export default function GoalDetailScreen() {
           >
             <ProgressRing progress={goal.progress} size={92} strokeWidth={7} label="%" />
             <View style={{ flex: 1, gap: 4 }}>
-              <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
-                Progress · tap to set
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
+                  Progress · tap to set
+                </Text>
+                {health ? (
+                  <View style={[
+                    styles.healthBadge,
+                    { backgroundColor:
+                        health.status === 'on_track'        ? '#6FA88222'
+                      : health.status === 'needs_attention' ? '#C8A44222'
+                      :                                       '#C0787022',
+                    },
+                  ]}>
+                    <Text variant="caption" style={{ color:
+                        health.status === 'on_track'        ? '#6FA882'
+                      : health.status === 'needs_attention' ? '#C8A442'
+                      :                                       '#C07870',
+                    }}>
+                      {health.status === 'on_track'        ? '● On track'
+                      : health.status === 'needs_attention' ? '● Watch'
+                      :                                       '● Stalling'}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
               <Text variant="h2">{milestonesLabel}</Text>
               <Text variant="body" color={colors.textSoft}>
                 {goal.targetDate ? `${format(parseISO(goal.targetDate), 'MMM d, yyyy')} · ${daysLabel}` : daysLabel}
               </Text>
+              {/* Surface top health observation inline */}
+              {health?.observations[0] ? (
+                <Text variant="small" color={colors.textFaint} style={{ marginTop: 4 }}>
+                  {health.observations[0]}
+                </Text>
+              ) : null}
             </View>
           </Pressable>
 
@@ -306,7 +344,17 @@ export default function GoalDetailScreen() {
             {/* 6. Progress Log — measure results, course correct */}
             <GoalLogsSection key={`logs-${reloadKey}`} goalId={goal.id} />
 
-            {/* 7. Daily system — the repeatable process */}
+            {/* 7. AI Insights — pattern detection + smart next step */}
+            {health ? (
+              <AIInsightsSection
+                key={`ai-${reloadKey}`}
+                goal={goal}
+                healthStatus={health.status}
+                healthObservation={health.observations[0] ?? ''}
+              />
+            ) : null}
+
+            {/* 8. Daily system — the repeatable process */}
             <EditableSection
               label="Action plan"
               value={goal.procedure}
@@ -376,6 +424,11 @@ const styles = StyleSheet.create({
     gap: spacing.xl,
     padding: spacing.xxl,
     paddingTop: spacing.xl,
+  },
+  healthBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radii.pill,
   },
   quickActions: {
     flexDirection: 'row',

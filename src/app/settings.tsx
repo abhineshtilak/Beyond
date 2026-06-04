@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, ScrollView, Pressable, Image, StyleSheet, Alert, Switch } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, ScrollView, Pressable, Image, StyleSheet, Alert, Switch, TextInput } from 'react-native';
 import { Stack, useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -33,6 +33,8 @@ import { confirm } from '@/lib/confirm';
 import { useAuthStore } from '@/store/auth';
 import { isAuthAvailable } from '@/lib/auth';
 import { usePreferencesStore } from '@/lib/preferences';
+import { getAIKey, setAIKey, clearAIKey, testAIKey } from '@/features/ai/service';
+import { Sparkles } from 'lucide-react-native';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -43,6 +45,46 @@ export default function SettingsScreen() {
   const refresh = useProfileStore((s) => s.refresh);
 
   const [busy, setBusy] = useState<'export' | 'import' | null>(null);
+
+  // ── AI key ──────────────────────────────────────────────────────────────────
+  const [aiKey,        setAiKey]        = useState('');
+  const [aiKeyStored,  setAiKeyStored]  = useState(false);
+  const [aiKeyTesting, setAiKeyTesting] = useState(false);
+  const [aiKeyValid,   setAiKeyValid]   = useState<boolean | null>(null);
+
+  useEffect(() => {
+    getAIKey().then((k) => {
+      if (k) { setAiKey(k); setAiKeyStored(true); setAiKeyValid(true); }
+    });
+  }, []);
+
+  const handleSaveAIKey = async () => {
+    if (!aiKey.trim()) return;
+    setAiKeyTesting(true);
+    const result = await testAIKey(aiKey.trim());
+    setAiKeyTesting(false);
+    if (!result.ok) {
+      setAiKeyValid(false);
+      Alert.alert(
+        'Could not connect',
+        result.error ?? 'Check the key and try again.',
+      );
+      return;
+    }
+    await setAIKey(aiKey.trim());
+    setAiKeyStored(true);
+    setAiKeyValid(true);
+    Alert.alert('AI enabled ✓', 'Gemini is connected. AI Insights will appear on your goals.');
+  };
+
+  const handleRemoveAIKey = async () => {
+    const ok = await confirm({ title: 'Remove AI key?', message: 'AI features will be disabled.', confirmLabel: 'Remove', destructive: true });
+    if (!ok) return;
+    await clearAIKey();
+    setAiKey('');
+    setAiKeyStored(false);
+    setAiKeyValid(null);
+  };
   const authMode = useAuthStore((s) => s.mode);
   const hapticsEnabled = usePreferencesStore((s) => s.hapticsEnabled);
   const setHapticsEnabled = usePreferencesStore((s) => s.setHapticsEnabled);
@@ -255,6 +297,76 @@ export default function SettingsScreen() {
                     : 'Your habit, task, and learning reminders will ring on time.'}
                 </Text>
               </View>
+            </View>
+          </Section>
+
+          {/* ── AI ───────────────────────────────────────────────────────── */}
+          <Section title="AI">
+            <View style={[styles.row, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+              <Sparkles size={18} color={aiKeyValid === true ? '#9B87C0' : colors.textMuted} strokeWidth={1.75} />
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text variant="bodyMedium">AI API Key</Text>
+                <Text variant="small" color={colors.textMuted}>
+                  {'Groq (recommended, free) — console.groq.com\nGemini (free) — aistudio.google.com/apikey'}
+                </Text>
+                <TextInput
+                  value={aiKey}
+                  onChangeText={(t) => { setAiKey(t); setAiKeyValid(null); }}
+                  placeholder="Paste your API key here…"
+                  placeholderTextColor={colors.textFaint}
+                  secureTextEntry={aiKeyStored}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  style={{
+                    marginTop: 6,
+                    paddingHorizontal: spacing.md,
+                    paddingVertical: spacing.sm,
+                    borderRadius: radii.md,
+                    borderWidth: 1,
+                    borderColor: aiKeyValid === false ? '#C07870' : aiKeyValid === true ? '#6FA882' : colors.hairline,
+                    backgroundColor: colors.surfaceAlt,
+                    color: colors.text,
+                    fontSize: 13,
+                  }}
+                />
+                {aiKeyStored ? (
+                  <Text variant="caption" color="#6FA882">
+                    ✓ {aiKey.startsWith('gsk_') ? 'Connected to Groq (Llama 3.3)' : 'Connected to Gemini'}
+                  </Text>
+                ) : aiKeyValid === false ? (
+                  <Text variant="caption" color="#C07870">Key invalid — check and retry</Text>
+                ) : null}
+              </View>
+            </View>
+            {/* Save / Remove buttons */}
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              {!aiKeyStored || aiKey !== '' ? (
+                <Pressable
+                  onPress={handleSaveAIKey}
+                  disabled={!aiKey.trim() || aiKeyTesting}
+                  style={({ pressed }) => [
+                    styles.row,
+                    { backgroundColor: aiKey.trim() ? colors.text : colors.surfaceAlt, borderColor: colors.hairline, flex: 1, justifyContent: 'center' },
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  <Text variant="smallMedium" color={aiKey.trim() ? colors.bg : colors.textMuted}>
+                    {aiKeyTesting ? 'Testing…' : aiKeyStored ? 'Update key' : 'Connect Gemini'}
+                  </Text>
+                </Pressable>
+              ) : null}
+              {aiKeyStored ? (
+                <Pressable
+                  onPress={handleRemoveAIKey}
+                  style={({ pressed }) => [
+                    styles.row,
+                    { backgroundColor: colors.surfaceAlt, borderColor: colors.hairline, flex: 1, justifyContent: 'center' },
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  <Text variant="smallMedium" color={colors.textMuted}>Remove</Text>
+                </Pressable>
+              ) : null}
             </View>
           </Section>
 

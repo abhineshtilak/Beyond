@@ -219,35 +219,163 @@ export async function deleteMilestone(id: string): Promise<void> {
 
 /* ===== Progress ===== */
 
+/**
+ * Smart progress calculation — priority order:
+ *  1. Milestones (always the primary signal when they exist)
+ *  2. Linked tasks (30% contribution alongside milestones, or 100% if no milestones)
+ *  3. Manual progress only as a fallback when NO structured data exists at all
+ *
+ * This fixes the bug where setting manualProgress then adding milestones caused
+ * milestones to be ignored — manualProgress previously always won.
+ */
 export async function recalcProgress(goalId: string): Promise<number> {
   const db = await getDB();
   const goal = await getGoal(goalId);
   if (!goal) return 0;
-  if (goal.manualProgress !== null && goal.manualProgress !== undefined) {
-    await db.runAsync(`UPDATE goals SET progress = ? WHERE id = ?`, [goal.manualProgress, goalId]);
-    return goal.manualProgress;
-  }
+
   const milestones = await db.getFirstAsync<{ total: number; done: number }>(
-    `SELECT COUNT(*) as total, SUM(done) as done FROM milestones WHERE goal_id = ?`,
+    `SELECT COUNT(*) as total, COALESCE(SUM(done), 0) as done FROM milestones WHERE goal_id = ?`,
     [goalId],
   );
   const linkedTasks = await db.getFirstAsync<{ total: number; done: number }>(
-    `SELECT COUNT(*) as total, SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END) as done
+    `SELECT COUNT(*) as total,
+            COALESCE(SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END), 0) as done
      FROM task_goals tg JOIN tasks t ON tg.task_id = t.id WHERE tg.goal_id = ?`,
     [goalId],
   );
+
   const msTotal = milestones?.total ?? 0;
-  const msDone = milestones?.done ?? 0;
+  const msDone  = milestones?.done  ?? 0;
   const tkTotal = linkedTasks?.total ?? 0;
-  const tkDone = linkedTasks?.done ?? 0;
-  const total = msTotal + tkTotal;
-  if (total === 0) {
-    await db.runAsync(`UPDATE goals SET progress = 0 WHERE id = ?`, [goalId]);
-    return 0;
+  const tkDone  = linkedTasks?.done  ?? 0;
+
+  let pct: number;
+
+  if (msTotal > 0) {
+    // Milestones are the source of truth.
+    // If tasks also exist, blend them in at 30% weight.
+    if (tkTotal > 0) {
+      const msPct = msDone / msTotal;
+      const tkPct = tkDone / tkTotal;
+      pct = Math.round((msPct * 0.7 + tkPct * 0.3) * 100);
+    } else {
+      pct = Math.round((msDone / msTotal) * 100);
+    }
+  } else if (tkTotal > 0) {
+    // No milestones — tasks are the only structured signal.
+    pct = Math.round((tkDone / tkTotal) * 100);
+  } else if (goal.manualProgress !== null && goal.manualProgress !== undefined) {
+    // No structured data at all — honour the manual value.
+    pct = goal.manualProgress;
+  } else {
+    pct = 0;
   }
-  const pct = Math.round(((msDone + tkDone) / total) * 100);
+
   await db.runAsync(`UPDATE goals SET progress = ? WHERE id = ?`, [pct, goalId]);
   return pct;
+}
+
+/**
+ * Goal health score (0–100) computed entirely from local behavioral data.
+ * No AI or network call needed — instant and always available.
+ *
+ * score ≥ 72 → on_track (green)
+ * score 48–71 → needs_attention (amber)
+ * score < 48  → stalling (red)
+ */
+export async function goalHealthScore(goalId: string): Promise<{
+  score: number;
+  status: 'on_track' | 'needs_attention' | 'stalling';
+  observations: string[];
+}> {
+  const db = await getDB();
+  const goal = await getGoal(goalId);
+  if (!goal) return { score: 50, status: 'needs_attention', observations: [] };
+
+  let score = 100;
+  const observations: string[] = [];
+
+  // ── 1. Momentum: days since last log entry ─────────────────────────────────
+  const lastLog = await db.getFirstAsync<{ created_at: number }>(
+    `SELECT created_at FROM goal_logs WHERE goal_id = ? ORDER BY created_at DESC LIMIT 1`,
+    [goalId],
+  );
+  const daysSinceLog = lastLog
+    ? differenceInCalendarDays(new Date(), new Date(lastLog.created_at))
+    : null;
+
+  if (daysSinceLog === null) {
+    score -= 15;
+    observations.push('No progress logs yet — start tracking your updates.');
+  } else if (daysSinceLog > 14) {
+    score -= 25;
+    observations.push(`Silent for ${daysSinceLog} days — quick check-in needed.`);
+  } else if (daysSinceLog > 7) {
+    score -= 10;
+    observations.push(`Last updated ${daysSinceLog} days ago.`);
+  }
+
+  // ── 2. Linked habit consistency (30-day window) ────────────────────────────
+  const linkedHabits = await db.getAllAsync<{ habit_id: string }>(
+    `SELECT habit_id FROM habit_goals WHERE goal_id = ?`, [goalId],
+  );
+  if (linkedHabits.length > 0) {
+    let totalRate = 0;
+    for (const { habit_id } of linkedHabits) {
+      const cnt = await db.getFirstAsync<{ n: number }>(
+        `SELECT COUNT(*) as n FROM habit_logs
+         WHERE habit_id = ? AND done = 1 AND log_date >= date('now','-30 days')`,
+        [habit_id],
+      );
+      totalRate += Math.min(100, ((cnt?.n ?? 0) / 30) * 100);
+    }
+    const avg = Math.round(totalRate / linkedHabits.length);
+    if (avg < 40) {
+      score -= 25;
+      observations.push(`Linked habits at ${avg}% consistency — the foundation is shaky.`);
+    } else if (avg < 65) {
+      score -= 10;
+      observations.push(`Habits at ${avg}% — still building the routine.`);
+    }
+  }
+
+  // ── 3. Progress vs expected pace ────────────────────────────────────────────
+  if (goal.targetDate) {
+    const totalDays = differenceInCalendarDays(parseISO(goal.targetDate), new Date(goal.createdAt));
+    const elapsed   = differenceInCalendarDays(new Date(), new Date(goal.createdAt));
+    if (totalDays > 0 && elapsed > 0) {
+      const expectedPct = Math.min(100, Math.round((elapsed / totalDays) * 100));
+      const gap = expectedPct - (goal.progress ?? 0);
+      if (gap > 25) {
+        score -= 20;
+        observations.push(`${gap}% behind expected pace — needs a push.`);
+      } else if (gap > 12) {
+        score -= 10;
+        observations.push(`Slightly behind pace (${gap}% gap).`);
+      }
+    }
+  }
+
+  // ── 4. Milestone stall: milestones exist but none done ─────────────────────
+  const ms = await db.getFirstAsync<{ total: number; done: number }>(
+    `SELECT COUNT(*) as total, COALESCE(SUM(done), 0) as done FROM milestones WHERE goal_id = ?`,
+    [goalId],
+  );
+  if ((ms?.total ?? 0) >= 2 && (ms?.done ?? 0) === 0) {
+    score -= 15;
+    observations.push('Milestones set but none ticked yet — start with the first one.');
+  }
+
+  score = Math.max(0, Math.min(100, score));
+  const status: 'on_track' | 'needs_attention' | 'stalling' =
+    score >= 72 ? 'on_track' : score >= 48 ? 'needs_attention' : 'stalling';
+
+  // Default positive observation when everything is going well
+  if (observations.length === 0) {
+    observations.push("You're on track — keep the momentum.");
+  }
+
+  return { score, status, observations };
 }
 
 /* ===== Stats / view models ===== */

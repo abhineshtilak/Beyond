@@ -9,11 +9,11 @@ import {
   NotebookPen,
   Lightbulb,
   GraduationCap,
-  Sparkles,
-  Compass,
+  Telescope,
   Users,
   Settings,
   ChevronRight,
+  Sparkles,
 } from 'lucide-react-native';
 import { spacing, radii, useColors } from '@/theme';
 
@@ -36,6 +36,20 @@ type SectionDef = {
 };
 
 const SECTIONS: SectionDef[] = [
+  {
+    title: 'Affirmations',
+    caption: 'Words that rewire you',
+    iconBgKey: 'lavenderSoft',
+    items: [
+      {
+        key: 'affirmations',
+        label: 'Affirmations',
+        sub: '10 curated collections · save your favourites · daily pick',
+        icon: Sparkles,
+        route: '/affirmations',
+      },
+    ],
+  },
   {
     title: 'Tools',
     caption: 'Daily-use trackers',
@@ -91,18 +105,11 @@ const SECTIONS: SectionDef[] = [
     iconBgKey: 'butterSoft',
     items: [
       {
-        key: 'dreams',
-        label: 'Ambitions & Dreams',
-        sub: 'Your bigger vision and bucket list',
-        icon: Sparkles,
-        route: '/dreams',
-      },
-      {
-        key: 'future',
-        label: 'Future Plans',
-        sub: 'Trips, ideas and someday-maybes',
-        icon: Compass,
-        route: '/future',
+        key: 'vision',
+        label: 'Vision & Plans',
+        sub: 'Dreams, ambitions and future experiences',
+        icon: Telescope,
+        route: '/vision',
       },
       {
         key: 'people',
