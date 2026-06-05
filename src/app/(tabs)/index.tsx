@@ -52,9 +52,11 @@ export default function HomeScreen() {
   const todayJournalCount = useJournalStore((s) => s.todayCount);
   const refreshJournal = useJournalStore((s) => s.refresh);
 
-  const todayDiary = useDiaryStore((s) => s.today);
-  const loadDiary = useDiaryStore((s) => s.loadToday);
-  const setDiaryMood = useDiaryStore((s) => s.setMood);
+  const todayDiary     = useDiaryStore((s) => s.today);
+  const loadDiary      = useDiaryStore((s) => s.loadToday);
+  const setDiaryMood   = useDiaryStore((s) => s.setMood);
+  const reflStreak     = useDiaryStore((s) => s.reflStreak);
+  const loadReflStreak = useDiaryStore((s) => s.loadReflStreak);
 
   const [goalsExpanded, setGoalsExpanded] = useState(false);
   const [onThisDay, setOnThisDay] = useState<OnThisDayEntry[]>([]);
@@ -67,6 +69,7 @@ export default function HomeScreen() {
       refreshProfile();
       refreshJournal();
       loadDiary();
+      loadReflStreak();
       getOnThisDay().then((r) => setOnThisDay(r.entries)).catch(() => {});
     }, [refreshTasks, refreshHabits, refreshGoals, refreshProfile, refreshJournal, loadDiary]),
   );
@@ -141,11 +144,11 @@ export default function HomeScreen() {
         {/* ── Stats row ── */}
         <View style={styles.statsRow}>
           <StatBox
-            label="Journal"
-            value={journalStreak > 0 ? `${journalStreak}d` : `${todayJournalCount}`}
-            sub={journalStreak > 0 ? 'STREAK' : todayJournalCount > 0 ? 'TODAY' : 'ENTRIES'}
+            label="Reflection"
+            value={reflStreak > 0 ? `${reflStreak}d` : journalStreak > 0 ? `${journalStreak}d` : `${todayJournalCount}`}
+            sub={reflStreak > 0 ? 'STREAK' : journalStreak > 0 ? 'JOURNAL' : 'ENTRIES'}
             tint={colors.accentSoft}
-            icon={journalStreak > 0 ? Flame : undefined}
+            icon={reflStreak >= 3 ? Flame : undefined}
             onPress={() => router.push('/(tabs)/journal')}
           />
           <StatBox
@@ -343,6 +346,30 @@ export default function HomeScreen() {
           </View>
         ) : null}
 
+        {/* ── AI affirmation nudge when mood is low ── */}
+        {(todayDiary?.mood === 'low' || todayDiary?.mood === 'bad') ? (
+          <View style={styles.padded}>
+            <Pressable
+              onPress={() => router.push('/affirmations' as any)}
+              style={({ pressed }) => [
+                styles.affNudge,
+                { backgroundColor: '#9B87C011', borderColor: '#9B87C033' },
+                pressed && { opacity: 0.8 },
+              ]}
+            >
+              <Text style={{ fontSize: 20 }}>✨</Text>
+              <View style={{ flex: 1 }}>
+                <Text variant="bodyMedium" style={{ color: '#9B87C0' }}>
+                  Generate affirmations for today
+                </Text>
+                <Text variant="small" color={colors.textMuted} style={{ marginTop: 2 }}>
+                  Personalised to what you're going through right now
+                </Text>
+              </View>
+            </Pressable>
+          </View>
+        ) : null}
+
         {/* ── On This Day ── */}
         {onThisDay.length > 0 ? (
           <View style={styles.padded}>
@@ -524,5 +551,14 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     padding: spacing.md,
     borderRadius: radii.lg,
+  },
+
+  affNudge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.lg,
+    borderRadius: radii.xl,
+    borderWidth: 1,
   },
 });

@@ -18,6 +18,14 @@ export type AIGoalPlan = {
   firstStep: string;
 };
 
+export type AITemporalPlan = {
+  quarterly: Array<{ label: string; focus: string; milestone: string }>;
+  monthly: Array<{ label: string; objective: string }>;
+  weekly: Array<{ label: string; theme: string; actions: string[] }>;
+  daily: { habits: string[]; focus: string };
+  requiredSkills: string[];
+};
+
 export type AINextStep = {
   action: string;
   reasoning: string;
@@ -97,25 +105,19 @@ export async function getSmartNextStep(params: {
 }): Promise<AINextStep | null> {
   const { goalTitle, progress, pendingMilestones, recentLogSummary, daysRemaining, habitData } = params;
 
-  const prompt = `You are a direct accountability partner. No coaching fluff.
+  const prompt = `Goal: "${goalTitle}" — ${progress}% done${daysRemaining !== null ? `, ${daysRemaining}d left` : ''}.
+${pendingMilestones.length > 0 ? `Next: ${pendingMilestones.slice(0, 2).join(' / ')}` : ''}
+${recentLogSummary ? `Recent: ${recentLogSummary}` : 'No recent logs.'}
+${habitData ? `Habits: ${habitData}` : ''}
 
-Goal: "${goalTitle}"
-Progress: ${progress}%
-${pendingMilestones.length > 0 ? `Next milestones: ${pendingMilestones.slice(0, 3).join(' / ')}` : 'No milestones set.'}
-${recentLogSummary ? `Recent activity: "${recentLogSummary}"` : 'No recent logs.'}
-${habitData ? `Habit consistency: ${habitData}` : ''}
-${daysRemaining !== null ? `Days remaining: ${daysRemaining}` : ''}
-
-Return valid JSON only:
+Return JSON only:
 {
-  "action": "the single highest-leverage action right now (1-2 short sentences)",
-  "reasoning": "why this action matters most at this specific moment (1 sentence)",
+  "action": "one specific action — max 12 words",
   "urgency": "today | this_week | when_ready"
 }
+No reasoning. No padding. Just the action.`;
 
-Be specific. Reference actual milestones or habits if relevant. No platitudes.`;
-
-  const result = await askGemini<AINextStep>(prompt, { temperature: 0.3, maxTokens: 250 });
+  const result = await askGemini<AINextStep>(prompt, { temperature: 0.3, maxTokens: 120 });
   if ('error' in result) return null;
   return result.data;
 }
@@ -137,22 +139,18 @@ export async function analyzeWeeklyPattern(params: {
   ).join('\n');
   const habitsText = habitData.map((h) => `${h.title}: ${h.rate}%`).join(', ');
 
-  const prompt = `Analyze this goal data. Identify one honest pattern. No coaching language.
+  const prompt = `Goal: "${goalTitle}" at ${progress}%.
+${logsText ? `Logs: ${logsText}` : ''}
+${habitsText ? `Habits: ${habitsText}` : ''}
 
-Goal: "${goalTitle}" (${progress}% complete)
-${logsText ? `Recent logs:\n${logsText}` : ''}
-${habitsText ? `Habit consistency: ${habitsText}` : ''}
-
-Return valid JSON only:
+Return JSON only:
 {
-  "pattern": "specific observation from the data — what is actually happening (1-2 sentences)",
-  "adjustment": "one concrete change or continuation based on the pattern (1-2 sentences)",
+  "pattern": "one honest observation — max 15 words",
   "momentum": "building | steady | declining"
 }
+No adjustment field. Just the pattern.`;
 
-Be honest. If data shows decline, say so. If things are going well, confirm it.`;
-
-  const result = await askGemini<AIWeeklyInsight>(prompt, { temperature: 0.35, maxTokens: 300 });
+  const result = await askGemini<AIWeeklyInsight>(prompt, { temperature: 0.35, maxTokens: 140 });
   if ('error' in result) return null;
   return result.data;
 }
@@ -168,26 +166,17 @@ export async function getReflectionPrompt(params: {
 }): Promise<AIReflectionPrompt | null> {
   const { goalTitle, healthStatus, daysSinceLastLog, recentObservation } = params;
 
-  const prompt = `Generate one focused reflection question for this goal situation.
+  const prompt = `Goal: "${goalTitle}" — ${healthStatus}${daysSinceLastLog ? `, ${daysSinceLastLog}d silent` : ''}.
+${recentObservation ? `Context: ${recentObservation}` : ''}
 
-Goal: "${goalTitle}"
-Health: ${healthStatus}
-${daysSinceLastLog !== null ? `Days since last update: ${daysSinceLastLog}` : ''}
-${recentObservation ? `Current observation: "${recentObservation}"` : ''}
-
-Return valid JSON only:
+Return JSON only:
 {
-  "question": "a specific, non-generic reflection question (avoid 'how are you feeling about')",
-  "context": "one sentence explaining why this question matters right now"
+  "question": "one direct question — max 12 words, no fluff"
 }
+Examples: "What are you avoiding?" / "What's the real blocker?" / "What would doubling speed look like?"`;
 
-Questions should be honest and direct. Not therapeutic. Not motivational.
-Examples of good questions:
-- "What specific action are you avoiding and why?"
-- "If progress were twice as fast, what would you be doing differently?"
-- "What belief is making this harder than it needs to be?"`;
 
-  const result = await askGemini<AIReflectionPrompt>(prompt, { temperature: 0.6, maxTokens: 150 });
+  const result = await askGemini<AIReflectionPrompt>(prompt, { temperature: 0.6, maxTokens: 80 });
   if ('error' in result) return null;
   return result.data;
 }
@@ -227,7 +216,117 @@ Be direct and specific. This is a personal retrospective, not a performance revi
   return result.data;
 }
 
-// ─── 6. Unrealistic Goal Detector ─────────────────────────────────────────────
+// ─── 6. Temporal Execution Plan ───────────────────────────────────────────────
+// Breaks a goal into quarterly → monthly → weekly → daily framework.
+// Stored in goal.planBreakdown as JSON. Generated once, refreshable.
+
+export async function generateTemporalPlan(params: {
+  title: string;
+  targetDate?: string;
+  why?: string;
+  currentPosition?: string;
+  innerObstacles?: string;
+  outerObstacles?: string;
+  skillsNeeded?: string;
+  daysAvailable: number;
+}): Promise<AITemporalPlan | null> {
+  const { title, targetDate, why, currentPosition, innerObstacles, outerObstacles, skillsNeeded, daysAvailable } = params;
+
+  const months = Math.max(1, Math.round(daysAvailable / 30));
+  const weeks  = Math.min(4, Math.max(1, Math.round(daysAvailable / 7)));
+
+  const prompt = `You are a precise execution planner. Break this goal into a realistic time-based framework.
+
+Goal: "${title}"
+${targetDate ? `Deadline: ${targetDate} (${daysAvailable} days away)` : `Duration: ~${daysAvailable} days`}
+${why ? `Why it matters: "${why}"` : ''}
+${currentPosition ? `Starting point: "${currentPosition}"` : ''}
+${innerObstacles ? `Inner obstacles: "${innerObstacles}"` : ''}
+${outerObstacles ? `Outer obstacles: "${outerObstacles}"` : ''}
+${skillsNeeded ? `Skills to build: "${skillsNeeded}"` : ''}
+
+Return valid JSON only (no markdown):
+{
+  "quarterly": [
+    {"label": "Q1 (Month 1-3)", "focus": "one-line focus for this quarter", "milestone": "concrete checkpoint"}
+  ],
+  "monthly": [
+    {"label": "Month 1", "objective": "the one most important objective this month"}
+  ],
+  "weekly": [
+    {"label": "Week 1", "theme": "theme for the week", "actions": ["specific action 1", "specific action 2"]}
+  ],
+  "daily": {
+    "habits": ["2-3 daily non-negotiable habits"],
+    "focus": "the single daily priority question — what must I do today to move this forward?"
+  },
+  "requiredSkills": ["skill 1 if not yet listed", "skill 2"]
+}
+
+Rules:
+- quarterly: max ${Math.ceil(months / 3)} items (cover the full timeline in quarters)
+- monthly: exactly 3 items (next 3 months only — near-term detail)
+- weekly: exactly ${weeks} items (first ${weeks} weeks — actionable)
+- daily.habits: 2-3 items, each under 8 words
+- daily.focus: one short question, e.g. "Did I write 500 words today?"
+- requiredSkills: only if not already in the input skills, else empty array
+- Be specific. Reference the goal domain. No generic advice.`;
+
+  const result = await askGemini<AITemporalPlan>(prompt, { temperature: 0.3, maxTokens: 900 });
+  if ('error' in result) return null;
+  return result.data;
+}
+
+// ─── 7. Dynamic Plan Adjustment ───────────────────────────────────────────────
+// Called when momentum is declining or the user explicitly requests a replan.
+// Takes the current plan + fresh progress context and returns an adjusted plan.
+
+export async function adjustTemporalPlan(params: {
+  title: string;
+  currentPlan: AITemporalPlan;
+  currentProgress: number;
+  daysRemaining: number | null;
+  recentLogs: string;       // last 3 log summaries joined
+  habitConsistency: string; // e.g. "Running: 40%, Reading: 20%"
+  healthStatus: 'on_track' | 'needs_attention' | 'stalling';
+}): Promise<AITemporalPlan | null> {
+  const { title, currentPlan, currentProgress, daysRemaining, recentLogs, habitConsistency, healthStatus } = params;
+
+  const prompt = `You are replanning a stalling goal. Be honest and realistic — cut what isn't working, double down on what is.
+
+Goal: "${title}"
+Status: ${healthStatus} at ${currentProgress}% complete
+${daysRemaining !== null ? `Days remaining: ${daysRemaining}` : ''}
+${recentLogs ? `Recent activity: "${recentLogs}"` : 'No recent logs.'}
+${habitConsistency ? `Habit consistency: ${habitConsistency}` : ''}
+
+Current plan (adjust this based on what's actually happening):
+- Quarterly: ${currentPlan.quarterly.map((q) => q.focus).join(' | ')}
+- Monthly: ${currentPlan.monthly.map((m) => m.objective).join(' | ')}
+- Weekly: ${currentPlan.weekly.map((w) => w.theme).join(' | ')}
+- Daily habits: ${currentPlan.daily.habits.join(', ')}
+
+Return valid JSON only — an ADJUSTED version of the plan that accounts for current reality:
+{
+  "quarterly": [{"label": "Q1", "focus": "...", "milestone": "..."}],
+  "monthly": [{"label": "Month 1", "objective": "..."}],
+  "weekly": [{"label": "Week 1", "theme": "...", "actions": ["...", "..."]}],
+  "daily": {"habits": ["...", "..."], "focus": "..."},
+  "requiredSkills": []
+}
+
+Key adjustment rules:
+- If behind pace: reduce scope or extend timelines, don't just repeat the old plan
+- If habits are weak: replace with simpler, more achievable versions
+- If stalling: identify the ONE thing blocking progress and make week 1 entirely about that
+- Keep what's working, cut what isn't`;
+
+  const result = await askGemini<AITemporalPlan>(prompt, { temperature: 0.35, maxTokens: 900 });
+  if ('error' in result) return null;
+  return result.data;
+}
+
+// ─── 9. Unrealistic Goal Detector (feasibility check) ────────────────────────
 // Gently surfaces if a goal timeline or scope seems unrealistic.
 
 export type AIFeasibilityCheck = {

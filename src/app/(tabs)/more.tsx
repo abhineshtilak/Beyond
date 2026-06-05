@@ -14,6 +14,7 @@ import {
   Settings,
   ChevronRight,
   Sparkles,
+  MessageCircle,
 } from 'lucide-react-native';
 import { spacing, radii, useColors } from '@/theme';
 
@@ -36,6 +37,20 @@ type SectionDef = {
 };
 
 const SECTIONS: SectionDef[] = [
+  {
+    title: 'AI',
+    caption: 'Your personal growth intelligence',
+    iconBgKey: 'lavenderSoft',
+    items: [
+      {
+        key: 'chat',
+        label: 'Beyond AI',
+        sub: 'Ask about your goals, habits, mood, and patterns',
+        icon: MessageCircle,
+        route: '/chat',
+      },
+    ],
+  },
   {
     title: 'Affirmations',
     caption: 'Words that rewire you',

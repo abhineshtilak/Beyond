@@ -12,10 +12,17 @@ export type Goal = {
   category: GoalCategory | null;
   targetDate: string | null;
   priority: GoalPriority;
+  description: string | null;    // explain the goal
+  specification: string | null;  // make it specific/measurable
   why: string | null;
   feeling: string | null;
   currentPosition: string | null;
+  /** @deprecated use innerObstacles + outerObstacles */
   problems: string | null;
+  innerObstacles: string | null;
+  outerObstacles: string | null;
+  skillsNeeded: string | null;
+  planBreakdown: string | null; // JSON — AITemporalPlan
   procedure: string | null;
   heroImageUri: string | null;
   progress: number;
@@ -29,10 +36,16 @@ export type GoalInput = {
   category?: GoalCategory | null;
   targetDate?: string | null;
   priority?: GoalPriority;
+  description?: string | null;
+  specification?: string | null;
   why?: string | null;
   feeling?: string | null;
   currentPosition?: string | null;
   problems?: string | null;
+  innerObstacles?: string | null;
+  outerObstacles?: string | null;
+  skillsNeeded?: string | null;
+  planBreakdown?: string | null;
   procedure?: string | null;
   heroImageUri?: string | null;
   manualProgress?: number | null;

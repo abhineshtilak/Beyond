@@ -184,6 +184,26 @@ async function runMigrations() {
     await db.runAsync(`ALTER TABLE journal_entries ADD COLUMN title TEXT`);
   }
 
+  // Goals: describe + specify + split obstacles + skills + temporal plan
+  if (!(await columnExists('goals', 'description'))) {
+    await db.runAsync(`ALTER TABLE goals ADD COLUMN description TEXT`);
+  }
+  if (!(await columnExists('goals', 'specification'))) {
+    await db.runAsync(`ALTER TABLE goals ADD COLUMN specification TEXT`);
+  }
+  if (!(await columnExists('goals', 'inner_obstacles'))) {
+    await db.runAsync(`ALTER TABLE goals ADD COLUMN inner_obstacles TEXT`);
+  }
+  if (!(await columnExists('goals', 'outer_obstacles'))) {
+    await db.runAsync(`ALTER TABLE goals ADD COLUMN outer_obstacles TEXT`);
+  }
+  if (!(await columnExists('goals', 'skills_needed'))) {
+    await db.runAsync(`ALTER TABLE goals ADD COLUMN skills_needed TEXT`);
+  }
+  if (!(await columnExists('goals', 'plan_breakdown'))) {
+    await db.runAsync(`ALTER TABLE goals ADD COLUMN plan_breakdown TEXT`);
+  }
+
   // Multi-goal linking junction tables
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS habit_goals (

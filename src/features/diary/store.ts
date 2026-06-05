@@ -6,7 +6,9 @@ import type { DiaryEntry, Mood } from './types';
 type State = {
   today: DiaryEntry | null;
   loading: boolean;
+  reflStreak: number;
   loadToday: () => Promise<void>;
+  loadReflStreak: () => Promise<void>;
   setMood: (mood: Mood | null) => Promise<void>;
   patch: (patch: Partial<Omit<DiaryEntry, 'id' | 'entryDate' | 'createdAt'>>) => Promise<void>;
 };
@@ -14,6 +16,7 @@ type State = {
 export const useDiaryStore = create<State>((set, get) => ({
   today: null,
   loading: false,
+  reflStreak: 0,
   loadToday: async () => {
     set({ loading: true });
     try {
@@ -22,6 +25,10 @@ export const useDiaryStore = create<State>((set, get) => ({
     } finally {
       set({ loading: false });
     }
+  },
+  loadReflStreak: async () => {
+    const streak = await repo.reflectionStreak();
+    set({ reflStreak: streak });
   },
   setMood: async (mood) => {
     const updated = await repo.upsertEntry(ymd(), { mood });

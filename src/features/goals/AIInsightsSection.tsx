@@ -95,9 +95,21 @@ export function AIInsightsSection({ goal, healthStatus, healthObservation }: Pro
       const logSummary = logs.slice(0, 2).map((l) => l.content).join(' — ');
       const pendingMs = milestones.filter((m) => !m.done).map((m) => m.title);
 
-      // Fetch habit consistency (last 30 days)
-      const habitDataStr = habits.length > 0
-        ? habits.map((h) => `${h.title}: (linked)`).join(', ')
+      // Compute real habit completion rates from DB (last 30 days)
+      const { getDB } = await import('@/lib/db');
+      const db = await getDB();
+      const habitRates: Array<{ title: string; rate: number }> = [];
+      if (habits.length > 0) {
+        for (const h of habits) {
+          const row = await db.getFirstAsync<{ n: number }>(
+            `SELECT COUNT(*) as n FROM habit_logs WHERE habit_id = ? AND done = 1 AND log_date >= date('now','-30 days')`,
+            [h.id],
+          );
+          habitRates.push({ title: h.title, rate: Math.round(((row?.n ?? 0) / 30) * 100) });
+        }
+      }
+      const habitDataStr = habitRates.length > 0
+        ? habitRates.map((h) => `${h.title}: ${h.rate}%`).join(', ')
         : '';
 
       const weeklyLogs = logs.map((l) => ({
@@ -123,7 +135,7 @@ export function AIInsightsSection({ goal, healthStatus, healthObservation }: Pro
         analyzeWeeklyPattern({
           goalTitle: goal.title,
           logs: weeklyLogs,
-          habitData: habits.map((h) => ({ title: h.title, rate: 60 })), // approximate
+          habitData: habitRates,  // real rates from DB
           progress: goal.progress ?? 0,
         }),
         getReflectionPrompt({
@@ -195,11 +207,8 @@ export function AIInsightsSection({ goal, healthStatus, healthObservation }: Pro
                   badgeColor={insights.nextStep.urgency === 'today' ? '#C07870' : '#9B87C0'}
                   colors={colors}
                 >
-                  <Text variant="body" color={colors.text} style={{ lineHeight: 24 }}>
+                  <Text variant="body" color={colors.text}>
                     {insights.nextStep.action}
-                  </Text>
-                  <Text variant="small" color={colors.textMuted} style={{ marginTop: spacing.xs }}>
-                    {insights.nextStep.reasoning}
                   </Text>
                 </InsightCard>
               ) : null}
@@ -207,36 +216,22 @@ export function AIInsightsSection({ goal, healthStatus, healthObservation }: Pro
               {/* Weekly Pattern */}
               {insights.pattern ? (
                 <InsightCard
-                  label="Pattern detected"
+                  label="Pattern"
                   badge={MOMENTUM_LABELS[insights.pattern.momentum]}
                   badgeColor={MOMENTUM_COLORS[insights.pattern.momentum]}
                   colors={colors}
                 >
-                  <Text variant="body" color={colors.text} style={{ lineHeight: 24 }}>
+                  <Text variant="body" color={colors.text}>
                     {insights.pattern.pattern}
                   </Text>
-                  {insights.pattern.adjustment ? (
-                    <View style={[styles.adjustmentBox, { backgroundColor: colors.accentSoft, borderColor: colors.hairline }]}>
-                      <Text variant="small" color={colors.textSoft}>
-                        💡 {insights.pattern.adjustment}
-                      </Text>
-                    </View>
-                  ) : null}
                 </InsightCard>
               ) : null}
 
-              {/* Reflection Prompt */}
+              {/* Reflection */}
               {insights.reflection ? (
                 <InsightCard label="Reflect" colors={colors}>
-                  <Text
-                    variant="body"
-                    color={colors.text}
-                    style={{ fontStyle: 'italic', lineHeight: 24 }}
-                  >
-                    "{insights.reflection.question}"
-                  </Text>
-                  <Text variant="small" color={colors.textMuted} style={{ marginTop: spacing.xs }}>
-                    {insights.reflection.context}
+                  <Text variant="body" color={colors.textSoft} style={{ fontStyle: 'italic' }}>
+                    {insights.reflection.question}
                   </Text>
                 </InsightCard>
               ) : null}

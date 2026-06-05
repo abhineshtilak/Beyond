@@ -126,14 +126,33 @@ export async function listBlocksForHour(date: string, hour: number): Promise<Tim
   return rows.map(toBlock);
 }
 
-export async function addBlock(input: TimeBlockInput): Promise<TimeBlock> {
+export async function addBlock(input: TimeBlockInput): Promise<TimeBlock | null> {
   const db = await getDB();
+
+  // Guard: never exceed 60 min total for this hour slot.
+  const existing = await db.getAllAsync<{ duration_mins: number; start_minute: number }>(
+    `SELECT duration_mins, start_minute FROM time_blocks WHERE log_date = ? AND start_hour = ?`,
+    [input.logDate, input.startHour],
+  );
+  const usedMins = existing.reduce((s, b) => s + b.duration_mins, 0);
+  const remaining = Math.max(0, 60 - usedMins);
+  if (remaining <= 0) return null; // hour is already full — skip silently
+
+  // Cap the block to whatever space remains
+  const safeDuration = Math.min(input.durationMins, remaining);
+  // Start minute = end of last block (pack tightly, no gaps, no overlaps)
+  const nextStartMin = existing.length > 0
+    ? existing.reduce((max, b) => Math.max(max, b.start_minute + b.duration_mins), 0)
+    : input.startMinute;
+  // Clamp nextStartMin to 0-59; if it reaches 60 the hour is full (caught above)
+  const startMin = Math.min(nextStartMin, 59);
+
   const id = uid();
   const now = Date.now();
   await db.runAsync(
     `INSERT INTO time_blocks (id, log_date, start_hour, start_minute, duration_mins, activity, category, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, input.logDate, input.startHour, input.startMinute, input.durationMins, input.activity, input.category, now],
+    [id, input.logDate, input.startHour, startMin, safeDuration, input.activity, input.category, now],
   );
   // Sync to hour_logs so widgets + insights stay current
   await upsert(input.logDate, input.startHour, input.activity, (input.category as HourCategory) ?? null);
@@ -242,7 +261,7 @@ export async function logSleepBlocks(
       durationMins: s.durMins,
       activity: 'Sleep',
       category: 'rest',
-    });
+    }); // null return on full hour is fine for sleep (shouldn't happen with clean wipe above)
   }
 }
 
@@ -285,11 +304,11 @@ export async function autoLogActivity(
       await addBlock({
         logDate: date,
         startHour: h,
-        startMinute: m,
+        startMinute: m,  // addBlock recalculates startMin; this is a hint only
         durationMins: blockDur,
         activity,
         category,
-      });
+      }); // returns null if hour is full — silently skip that slot
     }
     cur = nextHourMins;
   }

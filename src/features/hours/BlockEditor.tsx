@@ -154,7 +154,7 @@ export const BlockEditor = forwardRef<BlockEditorRef>(function BlockEditor(_, re
         });
         setEditing(null);
       } else {
-        await repo.addBlock({
+        const added = await repo.addBlock({
           logDate: dateRef.current,
           startHour: hourRef.current,
           startMinute: nextStartMin,
@@ -162,6 +162,7 @@ export const BlockEditor = forwardRef<BlockEditorRef>(function BlockEditor(_, re
           activity: activityRef.current.trim(),
           category,
         });
+        if (!added) return; // hour was full, nothing saved
       }
       onSavedRef.current();
       await refreshBlocks();

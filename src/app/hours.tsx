@@ -404,18 +404,14 @@ export default function HoursScreen() {
                                   ]}
                                 />
                               ))}
-                              {/* Grey remainder if hour isn't fully filled */}
-                              {blocks.reduce((s, b) => s + b.durationMins, 0) < 60 ? (
-                                <View
-                                  style={[
-                                    styles.blockStrip,
-                                    {
-                                      flex: 60 - blocks.reduce((s, b) => s + b.durationMins, 0),
-                                      backgroundColor: colors.hairline,
-                                    },
-                                  ]}
-                                />
-                              ) : null}
+                              {/* Grey remainder — only shown when total < 60, never negative */}
+                              {(() => {
+                                const used = blocks.reduce((s, b) => s + b.durationMins, 0);
+                                const rem  = Math.max(0, 60 - used);
+                                return rem > 0 ? (
+                                  <View style={[styles.blockStrip, { flex: rem, backgroundColor: colors.hairline }]} />
+                                ) : null;
+                              })()}
                             </View>
                             <Text
                               variant="caption"

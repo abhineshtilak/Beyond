@@ -294,12 +294,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xxl + spacing.md,
   },
   affText: {
-    fontSize: 26,
-    lineHeight: 40,
-    fontStyle: 'italic',
+    fontSize: 24,
+    lineHeight: 38,
     textAlign: 'center',
-    letterSpacing: 0.3,
-    fontFamily: fonts.serif,
+    letterSpacing: 0.15,
+    fontFamily: fonts.sans,
+    fontWeight: '300' as const,
   },
 
   // Bottom

@@ -1,13 +1,19 @@
-import React, { useCallback, useMemo } from 'react';
-import { View, Pressable, StyleSheet, FlatList } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { View, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { Stack, useRouter, useFocusEffect } from 'expo-router';
-import { ChevronLeft, Plus, Heart } from 'lucide-react-native';
+import { ChevronLeft, Plus, Sparkles, RefreshCw } from 'lucide-react-native';
 import { Screen } from '@/components/Screen';
 import { Text } from '@/components/Text';
 import { IconButton } from '@/components/IconButton';
-import { radii, spacing, shadows, useColors } from '@/theme';
+import { radii, spacing, shadows, useColors, fonts } from '@/theme';
 import { useAffirmationsStore } from '@/features/affirmations/store';
 import { getDailyAffirmation, FEATURED_IDS } from '@/features/affirmations/seeds';
+import { aiEnabled } from '@/features/ai/service';
+import {
+  generatePersonalizedAffirmations,
+  saveAIAffirmationsToCollection,
+  AI_COLLECTION_ID,
+} from '@/features/ai/affirmationAI';
 import type { AffirmationCollection } from '@/features/affirmations/types';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -20,19 +26,43 @@ function minuteLabel(count: number) {
 // ─── screen ───────────────────────────────────────────────────────────────────
 
 export default function AffirmationsScreen() {
-  const router   = useRouter();
-  const colors   = useColors();
-  const refresh  = useAffirmationsStore((s) => s.refresh);
+  const router      = useRouter();
+  const colors      = useColors();
+  const refresh     = useAffirmationsStore((s) => s.refresh);
   const collections = useAffirmationsStore((s) => s.collections);
 
-  useFocusEffect(useCallback(() => { refresh(); }, [refresh]));
+  const [generating, setGenerating] = useState(false);
+  const [hasKey, setHasKey]         = useState<boolean | null>(null);
+
+  useFocusEffect(useCallback(() => {
+    refresh();
+    aiEnabled().then(setHasKey);
+  }, [refresh]));
 
   const daily = useMemo(() => getDailyAffirmation(), []);
 
-  const curated  = collections.filter((c) => !c.isCustom);
-  const custom   = collections.filter((c) => c.isCustom);
+  // AI collection (if exists)
+  const aiCollection = collections.find((c) => c.id === AI_COLLECTION_ID);
+
+  // Curated = non-custom, excluding AI collection
+  const curated  = collections.filter((c) => !c.isCustom && c.id !== AI_COLLECTION_ID);
+  const custom   = collections.filter((c) => c.isCustom && c.id !== AI_COLLECTION_ID);
   const featured = curated.filter((c) => FEATURED_IDS.includes(c.id));
   const rest     = curated.filter((c) => !FEATURED_IDS.includes(c.id));
+
+  const handleGenerate = async () => {
+    if (generating) return;
+    setGenerating(true);
+    try {
+      const affirmations = await generatePersonalizedAffirmations();
+      if (affirmations && affirmations.length > 0) {
+        await saveAIAffirmationsToCollection(affirmations);
+        await refresh();
+      }
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const openCollection = (id: string) =>
     router.push({ pathname: '/affirmation-collection', params: { id } } as any);
@@ -52,9 +82,6 @@ export default function AffirmationsScreen() {
           </View>
         </View>
 
-        <Text variant="body" color={colors.textSoft} style={{ marginBottom: spacing.xl }}>
-          Words you repeat until you believe them — because they're true.
-        </Text>
 
         {/* ── Today's affirmation ─────────────────────────────────────── */}
         <Pressable
@@ -80,6 +107,33 @@ export default function AffirmationsScreen() {
             — {daily.collection}
           </Text>
         </Pressable>
+
+        {/* ── AI row — minimal single line ────────────────────────────── */}
+        {hasKey !== false ? (
+          <View style={[styles.aiRow, { borderColor: colors.hairline }]}>
+            <Sparkles size={14} color={'#9B87C0'} strokeWidth={1.75} />
+            {aiCollection ? (
+              <>
+                <Pressable onPress={() => openCollection(AI_COLLECTION_ID)} style={{ flex: 1 }}>
+                  <Text variant="smallMedium" style={{ color: '#9B87C0' }}>
+                    {aiCollection.title}
+                  </Text>
+                </Pressable>
+                <Pressable onPress={handleGenerate} hitSlop={10} disabled={generating}>
+                  {generating
+                    ? <ActivityIndicator size="small" color={'#9B87C0'} />
+                    : <RefreshCw size={14} color={'#9B87C0'} strokeWidth={1.75} />}
+                </Pressable>
+              </>
+            ) : (
+              <Pressable onPress={handleGenerate} disabled={generating} style={{ flex: 1 }}>
+                <Text variant="smallMedium" style={{ color: '#9B87C0' }}>
+                  {generating ? 'Generating for you…' : 'Generate affirmations for today'}
+                </Text>
+              </Pressable>
+            )}
+          </View>
+        ) : null}
 
         {/* ── My Affirmations (custom/saved) ──────────────────────────── */}
         {custom.length > 0 ? (
@@ -163,7 +217,8 @@ function CollectionCard({
     >
       {/* Colour swatch top area */}
       <View style={[styles.cardSwatch, { backgroundColor: collection.coverColor + 'CC' }]}>
-        <Text style={styles.cardEmoji}>{collection.emoji}</Text>
+        {/* fontFamily unset so emoji renders correctly on all platforms */}
+        <Text style={[styles.cardEmoji, { fontFamily: undefined }]}>{collection.emoji}</Text>
       </View>
       {/* Info */}
       <View style={styles.cardInfo}>
@@ -232,10 +287,24 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   dailyText: {
-    fontSize: 20,
-    lineHeight: 30,
-    fontStyle: 'italic',
-    letterSpacing: 0.2,
+    fontSize: 18,
+    lineHeight: 28,
+    fontFamily: fonts.sans,
+    letterSpacing: 0.1,
+    fontWeight: '300' as const,
+  },
+
+  // AI row — minimal single line
+  aiRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    alignSelf: 'flex-start',
+    marginBottom: spacing.lg,
   },
 
   // Grid
@@ -252,12 +321,14 @@ const styles = StyleSheet.create({
     ...shadows.soft,
   },
   cardSwatch: {
-    height: 110,
+    height: 100,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cardEmoji: {
-    fontSize: 40,
+    fontSize: 48,
+    lineHeight: 60,
+    includeFontPadding: false,
   },
   cardInfo: {
     padding: spacing.md,

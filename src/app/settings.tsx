@@ -74,7 +74,7 @@ export default function SettingsScreen() {
     await setAIKey(aiKey.trim());
     setAiKeyStored(true);
     setAiKeyValid(true);
-    Alert.alert('AI enabled ✓', 'Gemini is connected. AI Insights will appear on your goals.');
+    Alert.alert('AI connected ✓', 'AI Insights are now active across your goals, habits, and journal.');
   };
 
   const handleRemoveAIKey = async () => {
@@ -351,7 +351,7 @@ export default function SettingsScreen() {
                   ]}
                 >
                   <Text variant="smallMedium" color={aiKey.trim() ? colors.bg : colors.textMuted}>
-                    {aiKeyTesting ? 'Testing…' : aiKeyStored ? 'Update key' : 'Connect Gemini'}
+                    {aiKeyTesting ? 'Testing…' : aiKeyStored ? 'Update key' : 'Connect'}
                   </Text>
                 </Pressable>
               ) : null}

@@ -19,6 +19,7 @@ import {
   CheckCircle2,
   Pause,
   Play,
+  FileText,
 } from 'lucide-react-native';
 import { format, parseISO, differenceInCalendarDays } from 'date-fns';
 import * as ImagePicker from 'expo-image-picker';
@@ -26,7 +27,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Text } from '@/components/Text';
 import { IconButton } from '@/components/IconButton';
 import { ProgressRing } from '@/components/ProgressRing';
-import { EditableSection } from '@/components/EditableSection';
+import { GoalContextMap } from '@/features/goals/GoalContextMap';
 import { radii, spacing, useColors, useTheme, resolveTint } from '@/theme';
 import { confirm } from '@/lib/confirm';
 import { playCompletionSound } from '@/lib/completionSound';
@@ -41,6 +42,9 @@ import { GoalLogsSection } from '@/features/goals/GoalLogsSection';
 import { GoalBasicsEditor, GoalBasicsEditorRef } from '@/features/goals/GoalBasicsEditor';
 import { ProgressSheet, ProgressSheetRef } from '@/features/goals/ProgressSheet';
 import { AIInsightsSection } from '@/features/goals/AIInsightsSection';
+import { PlanBreakdownSection } from '@/features/goals/PlanBreakdownSection';
+import { GoalDebriefSheet, GoalDebriefSheetRef } from '@/features/goals/GoalDebriefSheet';
+import { SkillsSection } from '@/features/goals/SkillsSection';
 
 export default function GoalDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -60,6 +64,7 @@ export default function GoalDetailScreen() {
   } | null>(null);
   const basicsRef = useRef<GoalBasicsEditorRef>(null);
   const progressSheetRef = useRef<ProgressSheetRef>(null);
+  const debriefRef = useRef<GoalDebriefSheetRef>(null);
   const scrollRef = useRef<ScrollView>(null);
 
   const load = useCallback(async () => {
@@ -296,55 +301,36 @@ export default function GoalDetailScreen() {
               )}
               <Text variant="smallMedium">{goal.status === 'paused' ? 'Resume' : 'Pause'}</Text>
             </Pressable>
+            {(goal.status === 'completed' || goal.status === 'abandoned') ? (
+              <Pressable
+                onPress={() => debriefRef.current?.present(goal)}
+                style={({ pressed }) => [styles.actionBtn, { backgroundColor: '#9B87C011', borderColor: '#9B87C044' }, pressed && { opacity: 0.8 }]}
+              >
+                <FileText size={16} color={'#9B87C0'} strokeWidth={1.8} />
+                <Text variant="smallMedium" style={{ color: '#9B87C0' }}>Debrief</Text>
+              </Pressable>
+            ) : null}
           </View>
 
-          {/* SECTIONS — psychology-first order */}
+          {/* SECTIONS */}
           <View style={styles.sections}>
-            {/* 1. Motivation anchor — the WHY must come first */}
-            <EditableSection
-              label="Why does this matter"
-              value={goal.why}
-              placeholder="Why this, and why now? The reason has to be larger than your resistance."
-              onSave={(v) => update({ why: v })}
-              tint={colors.surfaceAlt}
-              serif
-            />
+            {/* ── Context Map: journey from current → goal ── */}
+            <View style={[styles.mapCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+              <GoalContextMap goal={goal} onUpdate={update} />
+            </View>
 
-            {/* 2. Vivid visualization — make the outcome feel real */}
-            <EditableSection
-              label="How it'll feel"
-              value={goal.feeling}
-              placeholder="When you reach this — what does that day look and feel like?"
-              onSave={(v) => update({ feeling: v })}
-            />
-
-            {/* 3. Honest baseline — where are you actually starting from */}
-            <EditableSection
-              label="Where I am now"
-              value={goal.currentPosition}
-              placeholder="The honest baseline. What's true today?"
-              onSave={(v) => update({ currentPosition: v })}
-            />
-
-            {/* 4. Pre-mortem — name obstacles before they stop you */}
-            <EditableSection
-              label="What's in the way"
-              value={goal.problems}
-              placeholder="Obstacles, fears, missing pieces. Name them."
-              onSave={(v) => update({ problems: v })}
-            />
-
-            {/* 5. Milestones — the structured path forward */}
+            {/* ── Milestones path + Skills ── */}
             <MilestonesSection
               key={`ms-${reloadKey}`}
               goalId={goal.id}
               onProgressChange={load}
             />
+            <SkillsSection goal={goal} onUpdate={update} />
 
-            {/* 6. Progress Log — measure results, course correct */}
+            {/* ── Progress log ── */}
             <GoalLogsSection key={`logs-${reloadKey}`} goalId={goal.id} />
 
-            {/* 7. AI Insights — pattern detection + smart next step */}
+            {/* ── AI insights ── */}
             {health ? (
               <AIInsightsSection
                 key={`ai-${reloadKey}`}
@@ -354,18 +340,18 @@ export default function GoalDetailScreen() {
               />
             ) : null}
 
-            {/* 8. Daily system — the repeatable process */}
-            <EditableSection
-              label="Action plan"
-              value={goal.procedure}
-              placeholder="The proven procedure. Daily, weekly. What works?"
-              onSave={(v) => update({ procedure: v })}
+            {/* ── Execution plan ── */}
+            <PlanBreakdownSection
+              key={`plan-${reloadKey}`}
+              goal={goal}
+              onPlanSaved={load}
+              healthStatus={health?.status}
             />
 
-            {/* 8. Linked habits & tasks — execution support */}
+            {/* ── Linked habits & tasks ── */}
             <LinkedItemsSection key={`li-${reloadKey}`} goalId={goal.id} />
 
-            {/* 9. Inspiration — ongoing fuel when motivation dips */}
+            {/* ── Inspiration ── */}
             <InspirationSection key={`ins-${reloadKey}`} goalId={goal.id} />
 
             {/* DANGER ZONE — separated from content by distance and weight */}
@@ -386,6 +372,7 @@ export default function GoalDetailScreen() {
 
         <GoalBasicsEditor ref={basicsRef} onSaved={() => { load(); refreshList(); }} />
         <ProgressSheet ref={progressSheetRef} />
+        <GoalDebriefSheet ref={debriefRef} />
       </KeyboardAvoidingView>
     </>
   );
@@ -448,6 +435,14 @@ const styles = StyleSheet.create({
   sections: {
     paddingHorizontal: spacing.xxl,
     gap: spacing.md,
+  },
+  mapCard: {
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    paddingTop: spacing.lg,
+    paddingLeft: spacing.md,
+    paddingRight: spacing.lg,
+    paddingBottom: spacing.sm,
   },
   dangerZone: {
     marginTop: spacing.xxl,

@@ -19,10 +19,16 @@ type GoalRow = {
   category: string | null;
   target_date: string | null;
   priority: number;
+  description: string | null;
+  specification: string | null;
   why: string | null;
   feeling: string | null;
   current_position: string | null;
   problems: string | null;
+  inner_obstacles: string | null;
+  outer_obstacles: string | null;
+  skills_needed: string | null;
+  plan_breakdown: string | null;
   procedure: string | null;
   hero_image_uri: string | null;
   progress: number;
@@ -37,10 +43,16 @@ const toGoal = (r: GoalRow): Goal => ({
   category: (r.category as GoalCategory) ?? null,
   targetDate: r.target_date,
   priority: ((r.priority as GoalPriority) ?? 2) as GoalPriority,
+  description: r.description,
+  specification: r.specification,
   why: r.why,
   feeling: r.feeling,
   currentPosition: r.current_position,
   problems: r.problems,
+  innerObstacles: r.inner_obstacles,
+  outerObstacles: r.outer_obstacles,
+  skillsNeeded: r.skills_needed,
+  planBreakdown: r.plan_breakdown,
   procedure: r.procedure,
   heroImageUri: r.hero_image_uri,
   progress: r.progress ?? 0,
@@ -74,18 +86,24 @@ export async function createGoal(input: GoalInput): Promise<Goal> {
   const id = uid();
   const now = Date.now();
   await db.runAsync(
-    `INSERT INTO goals (id, title, category, target_date, priority, why, feeling, current_position, problems, procedure, hero_image_uri, progress, manual_progress, status, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`,
+    `INSERT INTO goals (id, title, category, target_date, priority, description, specification, why, feeling, current_position, problems, inner_obstacles, outer_obstacles, skills_needed, plan_breakdown, procedure, hero_image_uri, progress, manual_progress, status, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`,
     [
       id,
       input.title.trim(),
       input.category ?? null,
       input.targetDate ?? null,
       input.priority ?? 2,
+      input.description ?? null,
+      input.specification ?? null,
       input.why ?? null,
       input.feeling ?? null,
       input.currentPosition ?? null,
       input.problems ?? null,
+      input.innerObstacles ?? null,
+      input.outerObstacles ?? null,
+      input.skillsNeeded ?? null,
+      input.planBreakdown ?? null,
       input.procedure ?? null,
       input.heroImageUri ?? null,
       input.manualProgress ?? null,
@@ -106,26 +124,38 @@ export async function updateGoal(id: string, patch: Partial<GoalInput>): Promise
     category: patch.category !== undefined ? patch.category : existing.category,
     targetDate: patch.targetDate !== undefined ? patch.targetDate : existing.targetDate,
     priority: patch.priority ?? existing.priority,
+    description: patch.description !== undefined ? patch.description : existing.description,
+    specification: patch.specification !== undefined ? patch.specification : existing.specification,
     why: patch.why !== undefined ? patch.why : existing.why,
     feeling: patch.feeling !== undefined ? patch.feeling : existing.feeling,
     currentPosition: patch.currentPosition !== undefined ? patch.currentPosition : existing.currentPosition,
     problems: patch.problems !== undefined ? patch.problems : existing.problems,
+    innerObstacles: patch.innerObstacles !== undefined ? patch.innerObstacles : existing.innerObstacles,
+    outerObstacles: patch.outerObstacles !== undefined ? patch.outerObstacles : existing.outerObstacles,
+    skillsNeeded: patch.skillsNeeded !== undefined ? patch.skillsNeeded : existing.skillsNeeded,
+    planBreakdown: patch.planBreakdown !== undefined ? patch.planBreakdown : existing.planBreakdown,
     procedure: patch.procedure !== undefined ? patch.procedure : existing.procedure,
     heroImageUri: patch.heroImageUri !== undefined ? patch.heroImageUri : existing.heroImageUri,
     manualProgress: patch.manualProgress !== undefined ? patch.manualProgress : existing.manualProgress,
     status: patch.status ?? existing.status,
   };
   await db.runAsync(
-    `UPDATE goals SET title=?, category=?, target_date=?, priority=?, why=?, feeling=?, current_position=?, problems=?, procedure=?, hero_image_uri=?, manual_progress=?, status=? WHERE id=?`,
+    `UPDATE goals SET title=?, category=?, target_date=?, priority=?, description=?, specification=?, why=?, feeling=?, current_position=?, problems=?, inner_obstacles=?, outer_obstacles=?, skills_needed=?, plan_breakdown=?, procedure=?, hero_image_uri=?, manual_progress=?, status=? WHERE id=?`,
     [
       merged.title,
       merged.category,
       merged.targetDate,
       merged.priority,
+      merged.description,
+      merged.specification,
       merged.why,
       merged.feeling,
       merged.currentPosition,
       merged.problems,
+      merged.innerObstacles,
+      merged.outerObstacles,
+      merged.skillsNeeded,
+      merged.planBreakdown,
       merged.procedure,
       merged.heroImageUri,
       merged.manualProgress,

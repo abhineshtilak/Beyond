@@ -2,13 +2,14 @@ import React, { useCallback, useState } from 'react';
 import { View, ScrollView, StyleSheet, Dimensions } from 'react-native';
 import { Stack, useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, Flame, Target, TrendingUp, BookOpen, Lightbulb } from 'lucide-react-native';
+import { ChevronLeft, Flame, Target, TrendingUp, BookOpen, Lightbulb, Sparkles } from 'lucide-react-native';
 import Svg, { Rect, Text as SvgText, G } from 'react-native-svg';
 import { Text } from '@/components/Text';
 import { Card } from '@/components/Card';
 import { IconButton } from '@/components/IconButton';
 import { spacing, radii, fonts, useColors } from '@/theme';
 import { computeInsights, type InsightsData } from '@/lib/insights';
+import { ProgressIntelligenceCard } from '@/components/ProgressIntelligenceCard';
 
 const SCREEN_W = Dimensions.get('window').width;
 // screen horizontal padding (xxl*2) + Card default padding (xl*2)
@@ -302,6 +303,17 @@ export default function InsightsScreen() {
                     : 'This is a remarkable collection. You\'re a thoughtful person.'}
                 </Text>
               </Section>
+
+              {/* ── AI Pattern Intelligence ─────────────────────────────────── */}
+              <View style={styles.section}>
+                <View style={styles.sectionHead}>
+                  <Sparkles size={14} color={'#9B87C0'} strokeWidth={2} />
+                  <Text variant="caption" color={colors.textMuted} style={{ textTransform: 'uppercase' }}>
+                    AI Patterns
+                  </Text>
+                </View>
+                <ProgressIntelligenceCard />
+              </View>
             </>
           )}
         </ScrollView>
