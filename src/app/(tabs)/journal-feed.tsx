@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { View, Pressable, StyleSheet, Image, FlatList } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { Sparkles, Pencil, Mic, Video as VideoIcon, Flame, X as CloseIcon, Play } from 'lucide-react-native';
 import * as Haptics from '@/lib/haptics';
 import { Screen } from '@/components/Screen';
@@ -210,10 +210,10 @@ function JournalCard({
       ]}
     >
       <View style={styles.cardBody}>
-        {/* Timestamp + selection circle */}
+        {/* Entry date + selection circle */}
         <View style={styles.cardHead}>
           <Text variant="caption" color={colors.textMuted} style={{ flex: 1 }}>
-            {format(entry.createdAt, 'EEE, MMM d · h:mm a').toUpperCase()}
+            {format(parseISO(entry.entryDate), 'EEE, MMM d, yyyy').toUpperCase()}
           </Text>
           {selectionMode ? (
             <View

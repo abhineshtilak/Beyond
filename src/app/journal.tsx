@@ -44,13 +44,28 @@ import { ymd } from '@/lib/date';
 import type { Attachment } from '@/components/MediaAttachments';
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
-function buildDateOptions() {
+function buildDateOptions(selectedDate: string) {
   const today = new Date();
-  return [
-    { label: 'Today',      sub: format(today,                'd MMM, yyyy'), date: ymd(today) },
-    { label: 'Yesterday',  sub: format(subDays(today, 1),   'd MMM, yyyy'), date: ymd(subDays(today, 1)) },
-    { label: 'Day before', sub: format(subDays(today, 2),   'd MMM, yyyy'), date: ymd(subDays(today, 2)) },
+  const todayStr = ymd(today);
+  const yesterdayStr = ymd(subDays(today, 1));
+  const dayBeforeStr = ymd(subDays(today, 2));
+  
+  const options = [
+    { label: 'Today',      sub: format(today,                'd MMM, yyyy'), date: todayStr },
+    { label: 'Yesterday',  sub: format(subDays(today, 1),   'd MMM, yyyy'), date: yesterdayStr },
+    { label: 'Day before', sub: format(subDays(today, 2),   'd MMM, yyyy'), date: dayBeforeStr },
   ];
+  
+  // Add selected date to options if it's not already there
+  if (![todayStr, yesterdayStr, dayBeforeStr].includes(selectedDate)) {
+    options.push({
+      label: dateLabelFor(selectedDate),
+      sub: format(parseISO(selectedDate), 'd MMM, yyyy'),
+      date: selectedDate,
+    });
+  }
+  
+  return options;
 }
 
 function dateLabelFor(d: string): string {
@@ -107,7 +122,7 @@ export default function JournalScreen() {
   const [showCelebration, setShowCelebration] = useState(false);
   const [celebrationStreak, setCelebrationStreak] = useState(0);
 
-  const dateOptions = buildDateOptions();
+  const dateOptions = buildDateOptions(selectedDate);
 
   useEffect(() => {
     if (!params.id) return;
@@ -120,13 +135,13 @@ export default function JournalScreen() {
         setAttachments(e.attachments);
         setCreatedAt(e.createdAt);
         setSelectedDate(e.entryDate);
-        lastSavedRef.current = snapshot(e.title ?? '', e.bodyHtml ?? '', e.attachments);
+        lastSavedRef.current = snapshot(e.title ?? '', e.bodyHtml ?? '', e.attachments, e.entryDate);
       }
     })();
   }, [params.id]);
 
-  const snapshot = (t = titleRef.current, h = html, a = attachments) =>
-    JSON.stringify([t, h, a.map((x) => x.uri).join('|')]);
+  const snapshot = (t = titleRef.current, h = html, a = attachments, d = selectedDate) =>
+    JSON.stringify([t, h, a.map((x) => x.uri).join('|'), d]);
 
   const hasContent = useCallback(() => {
     const plain = htmlToPlainText(html).trim();
@@ -148,7 +163,7 @@ export default function JournalScreen() {
         mood: null,
       };
       if (idRef.current) {
-        await repo.update(idRef.current, input);
+        await repo.update(idRef.current, input, selectedDate);
       } else {
         const created = await repo.create(input, selectedDate);
         idRef.current = created.id;
@@ -167,7 +182,19 @@ export default function JournalScreen() {
     if (!hasContent()) return;
     const t = setTimeout(() => save(true), 1500);
     return () => clearTimeout(t);
-  }, [html, attachments, hasContent, save]);
+  }, [html, attachments, hasContent, save, selectedDate]);
+
+  // Save immediately when date changes (for existing entries)
+  useEffect(() => {
+    if (!idRef.current || !hasContent()) return;
+    save(true);
+  }, [selectedDate, save, hasContent]);
+
+  // Save when closing date picker to ensure date change is persisted
+  useEffect(() => {
+    if (dateMenuOpen || !hasContent()) return;
+    save(true);
+  }, [dateMenuOpen, save, hasContent]);
 
   const handleBack = async () => {
     Keyboard.dismiss();

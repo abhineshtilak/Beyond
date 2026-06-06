@@ -88,7 +88,7 @@ export async function create(input: JournalInput, date?: string): Promise<Journa
   return (await get(id))!;
 }
 
-export async function update(id: string, patch: JournalInput): Promise<void> {
+export async function update(id: string, patch: JournalInput, date?: string): Promise<void> {
   const db = await getDB();
   const existing = await get(id);
   if (!existing) return;
@@ -99,9 +99,10 @@ export async function update(id: string, patch: JournalInput): Promise<void> {
     attachments: patch.attachments !== undefined ? patch.attachments : existing.attachments,
     promptKey: patch.promptKey !== undefined ? patch.promptKey : existing.promptKey,
     mood: patch.mood !== undefined ? patch.mood : existing.mood,
+    entryDate: date ?? existing.entryDate,
   };
   await db.runAsync(
-    `UPDATE journal_entries SET title = ?, body_html = ?, content = ?, attachments = ?, prompt_key = ?, mood = ?, updated_at = ? WHERE id = ?`,
+    `UPDATE journal_entries SET title = ?, body_html = ?, content = ?, attachments = ?, prompt_key = ?, mood = ?, entry_date = ?, updated_at = ? WHERE id = ?`,
     [
       merged.title,
       merged.bodyHtml,
@@ -109,6 +110,7 @@ export async function update(id: string, patch: JournalInput): Promise<void> {
       JSON.stringify(merged.attachments),
       merged.promptKey,
       merged.mood,
+      merged.entryDate,
       Date.now(),
       id,
     ],
