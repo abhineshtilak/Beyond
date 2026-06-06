@@ -56,6 +56,7 @@ const TABLES = [
   'people',
   'learning',
   'hour_logs',
+  'sleep_entries',
   'profile',
   'settings',
   'journal_entries',

@@ -13,6 +13,95 @@ async function columnExists(table: string, column: string): Promise<boolean> {
   return rows.some((r) => r.name === column);
 }
 
+type LegacySleepBlockRow = {
+  log_date: string;
+  start_hour: number;
+  start_minute: number;
+  duration_mins: number;
+  created_at: number;
+};
+
+function dateToEpochDay(date: string): number {
+  const [year, month, day] = date.split('-').map(Number);
+  return Math.floor(Date.UTC(year, month - 1, day) / 86400000);
+}
+
+function epochDayToDate(epochDay: number): string {
+  return new Date(epochDay * 86400000).toISOString().slice(0, 10);
+}
+
+async function migrateLegacySleepBlocks(db: SQLite.SQLiteDatabase) {
+  const migrationKey = 'sleep_entries_migrated_v1';
+  const migrated = await db.getFirstAsync<{ value: string }>(
+    `SELECT value FROM settings WHERE key = ?`,
+    [migrationKey],
+  );
+  if (migrated) return;
+
+  const rows = await db.getAllAsync<LegacySleepBlockRow>(
+    `SELECT log_date, start_hour, start_minute, duration_mins, created_at
+     FROM time_blocks
+     WHERE activity = 'Sleep'
+     ORDER BY log_date ASC, start_hour ASC, start_minute ASC`,
+  );
+
+  const intervals = rows
+    .map((row) => {
+      const start = dateToEpochDay(row.log_date) * 1440
+        + row.start_hour * 60
+        + row.start_minute;
+      return {
+        start,
+        end: start + row.duration_mins,
+        createdAt: row.created_at,
+      };
+    })
+    .filter((interval) => interval.end > interval.start);
+
+  const sessions: Array<{ start: number; end: number; createdAt: number }> = [];
+  for (const interval of intervals) {
+    const current = sessions[sessions.length - 1];
+    if (current && interval.start <= current.end) {
+      current.end = Math.max(current.end, interval.end);
+      current.createdAt = Math.min(current.createdAt, interval.createdAt);
+    } else {
+      sessions.push({ ...interval });
+    }
+  }
+
+  await db.withTransactionAsync(async () => {
+    for (const session of sessions) {
+      const sleepMinuteOfDay = session.start % 1440;
+      const wakeMinuteOfDay = session.end % 1440;
+      const wakeDate = epochDayToDate(Math.floor(session.end / 1440));
+      await db.runAsync(
+        `INSERT OR IGNORE INTO sleep_entries (
+          id, wake_date, sleep_hour, sleep_minute, wake_hour, wake_minute,
+          duration_mins, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          `legacy-sleep-${session.start}-${session.end}`,
+          wakeDate,
+          Math.floor(sleepMinuteOfDay / 60),
+          sleepMinuteOfDay % 60,
+          Math.floor(wakeMinuteOfDay / 60),
+          wakeMinuteOfDay % 60,
+          session.end - session.start,
+          session.createdAt,
+          Date.now(),
+        ],
+      );
+    }
+
+    await db.runAsync(`DELETE FROM time_blocks WHERE activity = 'Sleep'`);
+    await db.runAsync(`DELETE FROM hour_logs WHERE activity = 'Sleep'`);
+    await db.runAsync(
+      `INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)`,
+      [migrationKey, '1'],
+    );
+  });
+}
+
 async function runMigrations() {
   const db = await getDB();
   await db.execAsync(`
@@ -243,6 +332,20 @@ async function runMigrations() {
     );
     CREATE INDEX IF NOT EXISTS idx_time_blocks_date ON time_blocks(log_date);
 
+    CREATE TABLE IF NOT EXISTS sleep_entries (
+      id            TEXT PRIMARY KEY,
+      wake_date     TEXT NOT NULL,
+      sleep_hour    INTEGER NOT NULL,
+      sleep_minute  INTEGER NOT NULL,
+      wake_hour     INTEGER NOT NULL,
+      wake_minute   INTEGER NOT NULL,
+      duration_mins INTEGER NOT NULL,
+      created_at    INTEGER NOT NULL,
+      updated_at    INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_sleep_entries_wake_date
+      ON sleep_entries(wake_date, created_at);
+
     CREATE TABLE IF NOT EXISTS hour_categories (
       id       TEXT PRIMARY KEY,
       label    TEXT NOT NULL,
@@ -250,6 +353,8 @@ async function runMigrations() {
       sort_idx INTEGER DEFAULT 0
     );
   `);
+  await migrateLegacySleepBlocks(db);
+
   // Seed default categories if table is empty (new installs)
   const catCount = await db.getFirstAsync<{ n: number }>(`SELECT COUNT(*) as n FROM hour_categories`);
   if ((catCount?.n ?? 0) === 0) {

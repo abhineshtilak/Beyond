@@ -22,8 +22,15 @@ import {
   type HourCategory,
   type HourLog,
   type HourCategoryRow,
+  type SleepEntry,
   type TimeBlock,
 } from '@/features/hours/types';
+import {
+  blockedHoursOnPreviousDate,
+  blockedHoursOnWakeDate,
+  formatSleepDuration,
+  formatSleepTime,
+} from '@/features/hours/sleepMath';
 import { HourEditor, HourEditorRef } from '@/features/hours/HourEditor';
 import { SleepSheet, SleepSheetRef } from '@/features/hours/SleepSheet';
 import { BlockEditor, BlockEditorRef } from '@/features/hours/BlockEditor';
@@ -45,7 +52,8 @@ export default function HoursScreen() {
   const [view, setView] = useState<'day' | 'week'>('day');
   const [weekData, setWeekData] = useState<{ date: string; logs: HourLog[] }[]>([]);
   const [blocksByHour, setBlocksByHour] = useState<Map<number, TimeBlock[]>>(new Map());
-  const [nextDaySleepBlocks, setNextDaySleepBlocks] = useState<TimeBlock[]>([]);
+  const [sleepEntries, setSleepEntries] = useState<SleepEntry[]>([]);
+  const [nextDaySleepEntries, setNextDaySleepEntries] = useState<SleepEntry[]>([]);
   const [categories, setCategories] = useState<HourCategoryRow[]>([]);
 
   // ─── Init ──────────────────────────────────────────────────────────────────
@@ -54,13 +62,15 @@ export default function HoursScreen() {
   const loadBlocks = useCallback(async () => {
     if (!date) return;
     const nextDate = ymd(addDays(parseISO(date), 1));
-    const [blocks, cats, nextSleep] = await Promise.all([
+    const [blocks, cats, currentSleep, nextSleep] = await Promise.all([
       hoursRepo.listBlocksForDate(date),
       hoursRepo.listCategories(),
-      hoursRepo.listSleepBlocksForDate(nextDate),
+      hoursRepo.listSleepEntriesForDate(date),
+      hoursRepo.listSleepEntriesForDate(nextDate),
     ]);
     setCategories(cats);
-    setNextDaySleepBlocks(nextSleep);
+    setSleepEntries(currentSleep);
+    setNextDaySleepEntries(nextSleep);
     const map = new Map<number, TimeBlock[]>();
     for (const b of blocks) {
       const arr = map.get(b.startHour) ?? [];
@@ -84,76 +94,34 @@ export default function HoursScreen() {
     return m;
   }, [logs]);
 
-  // ─── Sleep-aware computed values ───────────────────────────────────────────
-  // Hours whose ONLY content is Sleep — these rows are hidden.
-  // We check both sources so the row disappears as soon as either data set loads:
-  //   • logsByHour (hour_logs)  — loaded by refresh(), arrives fast
-  //   • blocksByHour (time_blocks) — loaded by loadBlocks(), arrives shortly after
-  const sleepHours = useMemo(() => {
-    const set = new Set<number>();
-    // From hour_logs — instant once refresh() resolves
-    for (const [h, log] of logsByHour) {
-      if (log.activity === 'Sleep') set.add(h);
+  // Sleep records are counted only on their wake date. The next wake date is
+  // consulted solely to block the previous evening's occupied tracker hours.
+  const blockedHours = useMemo(() => {
+    const result = new Set<number>();
+    for (const entry of sleepEntries) {
+      for (const hour of blockedHoursOnWakeDate(entry)) result.add(hour);
     }
-    // From time_blocks — catches hours where blocks are all Sleep
-    for (const [h, blocks] of blocksByHour) {
-      if (blocks.length > 0 && blocks.every((b) => b.activity === 'Sleep')) {
-        set.add(h);
-      }
+    for (const entry of nextDaySleepEntries) {
+      for (const hour of blockedHoursOnPreviousDate(entry)) result.add(hour);
     }
-    return set;
-  }, [logsByHour, blocksByHour]);
+    return result;
+  }, [sleepEntries, nextDaySleepEntries]);
 
-  // Total sleep in minutes — current date blocks + cross-midnight blocks on next date
-  const sleepMinutes = useMemo(() => {
-    let total = 0;
-    for (const [, blocks] of blocksByHour) {
-      for (const b of blocks) {
-        if (b.activity === 'Sleep') total += b.durationMins;
-      }
-    }
-    for (const b of nextDaySleepBlocks) {
-      total += b.durationMins;
-    }
-    return total;
-  }, [blocksByHour, nextDaySleepBlocks]);
+  // The selected wake date is the only source for this total.
+  const sleepMinutes = useMemo(
+    () => sleepEntries.reduce((total, entry) => total + entry.durationMins, 0),
+    [sleepEntries],
+  );
 
   // Sleep session start/end for range display (e.g. "10 PM to 6 AM")
   const sleepSession = useMemo(() => {
-    const allSleepBlocks: { startHour: number; startMinute: number; durationMins: number; logDate: string }[] = [];
-    for (const [, blocks] of blocksByHour) {
-      for (const b of blocks) {
-        if (b.activity === 'Sleep') allSleepBlocks.push(b);
-      }
-    }
-    for (const b of nextDaySleepBlocks) {
-      allSleepBlocks.push(b);
-    }
-    if (allSleepBlocks.length === 0) return null;
-
-    // Find earliest start and latest end across all sleep blocks
-    let minTotalMins = Infinity;
-    let maxTotalMins = -Infinity;
-    for (const b of allSleepBlocks) {
-      // For next-day blocks, add 1440 (24*60) so they sort after same-day blocks
-      const dayOffset = b.logDate !== date ? 1440 : 0;
-      const start = b.startHour * 60 + (b.startMinute ?? 0) + dayOffset;
-      const end = start + b.durationMins;
-      if (start < minTotalMins) minTotalMins = start;
-      if (end > maxTotalMins) maxTotalMins = end;
-    }
-    if (minTotalMins === Infinity) return null;
-
-    const fmtMins = (totalMins: number) => {
-      const h = Math.floor(totalMins / 60) % 24;
-      const m = totalMins % 60;
-      const period = h < 12 ? 'AM' : 'PM';
-      const h12 = h % 12 === 0 ? 12 : h % 12;
-      return m > 0 ? `${h12}:${String(m).padStart(2, '0')} ${period}` : `${h12} ${period}`;
+    if (sleepEntries.length !== 1) return null;
+    const [entry] = sleepEntries;
+    return {
+      startLabel: formatSleepTime(entry.sleepHour, entry.sleepMinute),
+      endLabel: formatSleepTime(entry.wakeHour, entry.wakeMinute),
     };
-
-    return { startLabel: fmtMins(minTotalMins), endLabel: fmtMins(maxTotalMins) };
-  }, [blocksByHour, nextDaySleepBlocks, date]);
+  }, [sleepEntries]);
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
   const breakdown = useMemo(() => {
@@ -209,9 +177,7 @@ export default function HoursScreen() {
   // Sleep summary label (e.g. "8h")
   const sleepLabel = useMemo(() => {
     if (sleepMinutes === 0) return null;
-    const h = Math.floor(sleepMinutes / 60);
-    const m = sleepMinutes % 60;
-    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+    return formatSleepDuration(sleepMinutes);
   }, [sleepMinutes]);
 
   return (
@@ -324,11 +290,85 @@ export default function HoursScreen() {
                   </View>
                 ) : (
                   <View style={[styles.stat, { backgroundColor: colors.butterSoft }]}>
-                    <Text variant="h2">{24 - totalLogged - sleepHours.size}</Text>
+                    <Text variant="h2">
+                      {Math.max(0, 24 - totalLogged - blockedHours.size)}
+                    </Text>
                     <Text variant="caption" color={colors.textSoft}>UNTRACKED</Text>
                   </View>
                 )}
               </View>
+
+              {sleepEntries.length > 0 ? (
+                <View
+                  style={[
+                    styles.card,
+                    { backgroundColor: colors.surface, borderColor: colors.hairline },
+                  ]}
+                >
+                  <View style={styles.sleepCardHeader}>
+                    <View>
+                      <Text
+                        variant="caption"
+                        color={colors.textMuted}
+                        style={{ textTransform: 'uppercase' }}
+                      >
+                        Sleep entries
+                      </Text>
+                      <Text variant="small" color={colors.textFaint}>
+                        Counted only on this wake-up date
+                      </Text>
+                    </View>
+                    <Text variant="smallMedium" color={colors.textSoft}>
+                      {sleepEntries.length}
+                    </Text>
+                  </View>
+                  {sleepEntries.map((entry) => (
+                    <Pressable
+                      key={entry.id}
+                      onPress={() => {
+                        sleepRef.current?.present(
+                          date,
+                          () => { refresh(); loadBlocks(); },
+                          entry,
+                        );
+                      }}
+                      style={({ pressed }) => [
+                        styles.sleepEntryRow,
+                        { borderTopColor: colors.hairline },
+                        pressed && { opacity: 0.7 },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.sleepEntryIcon,
+                          { backgroundColor: colors.lavenderSoft },
+                        ]}
+                      >
+                        <Moon
+                          size={16}
+                          color={colors.lavender}
+                          strokeWidth={1.75}
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text variant="bodyMedium">
+                          {formatSleepTime(entry.sleepHour, entry.sleepMinute)}
+                          {' to '}
+                          {formatSleepTime(entry.wakeHour, entry.wakeMinute)}
+                        </Text>
+                        <Text variant="caption" color={colors.textMuted}>
+                          {formatSleepDuration(entry.durationMins)}
+                        </Text>
+                      </View>
+                      <ChevronRight
+                        size={16}
+                        color={colors.textMuted}
+                        strokeWidth={1.75}
+                      />
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
 
               {/* Category breakdown */}
               {Object.keys(breakdown).length > 0 ? (
@@ -351,8 +391,8 @@ export default function HoursScreen() {
               {/* 24-hour grid — sleep hours are hidden */}
               <View style={styles.timeline}>
                 {HOURS.map((hour) => {
-                  // Sleep-only hours are collapsed — they don't need a row
-                  if (sleepHours.has(hour)) return null;
+                  // Occupied sleep hours are blocked from manual hour logging.
+                  if (blockedHours.has(hour)) return null;
 
                   const log = logsByHour.get(hour);
                   const blocks = blocksByHour.get(hour) ?? [];
@@ -621,6 +661,27 @@ const styles = StyleSheet.create({
   statsRow: { flexDirection: 'row', gap: spacing.md },
   stat: { flex: 1, padding: spacing.lg, borderRadius: radii.lg, gap: 2 },
   card: { borderWidth: 1, borderRadius: radii.lg, padding: spacing.lg, gap: spacing.sm },
+  sleepCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  sleepEntryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    borderTopWidth: 1,
+    paddingTop: spacing.md,
+    marginTop: spacing.xs,
+  },
+  sleepEntryIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   legendGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: 4 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   legendDot: { width: 10, height: 10, borderRadius: 5 },

@@ -69,6 +69,25 @@ export type TimeBlockInput = {
   category: string | null;
 };
 
+export type SleepEntry = {
+  id: string;
+  wakeDate: string;
+  sleepHour: number;
+  sleepMinute: number;
+  wakeHour: number;
+  wakeMinute: number;
+  durationMins: number;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type SleepEntryInput = {
+  sleepHour: number;
+  sleepMinute: number;
+  wakeHour: number;
+  wakeMinute: number;
+};
+
 // User-manageable category
 export type HourCategoryRow = {
   id: string;

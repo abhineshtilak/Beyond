@@ -8,7 +8,8 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test:sleep": "node --experimental-strip-types --experimental-sqlite --test scripts/sleep-regression.test.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/fraunces": "^0.4.1",
